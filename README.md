@@ -8,5 +8,7 @@ It currently doesn't exist. When it exists, it should have the following feature
 * Ability to enter a list of ISFDB IDs and create new book records for all of them
 * Ability to extract ISFDB IDs from the currently open tabs in a running Firefox session and create &c
 
+The messy manual process I currently use is documented [here](http://confluence.locustforge.net/blog/posts/isfdb-calibre/).
+
 [1]: https://github.com/XtinaSchelin/isfdb-calibre
 [2]: https://github.com/confluence/isfdb-calibre
