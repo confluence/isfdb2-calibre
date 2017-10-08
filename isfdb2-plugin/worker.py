@@ -18,10 +18,7 @@ from calibre.ebooks.metadata.book.base import Metadata
 from calibre.library.comments import sanitize_comments_html
 from calibre.utils.cleantext import clean_ascii_chars
 
-import calibre_plugins.isfdb.config as cfg
-
-class Worker(Thread): # Get details
-
+class Worker(Thread):
     '''
     Get book details from ISFDB book page in a separate thread.
     '''
@@ -117,16 +114,11 @@ class Worker(Thread): # Get details
             mi.pubdate = pubdate
             
         try:
-            # TODO eliminate this option; always add the contents
-            default_append_contents = cfg.DEFAULT_STORE_VALUES[cfg.KEY_APPEND_CONTENTS]
-            append_contents = cfg.plugin_prefs[cfg.STORE_NAME].get(cfg.KEY_APPEND_CONTENTS, default_append_contents)
-
-            if append_contents:
-                contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
-                
-                if contents_node:
-                    contents = tostring(contents_node[0], method='html')            
-                    mi.comments = sanitize_comments_html(contents)
+            contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
+            
+            if contents_node:
+                contents = tostring(contents_node[0], method='html')            
+                mi.comments = sanitize_comments_html(contents)
 
         except:
             self.log.exception('Error parsing comments for url: %r'%self.url)

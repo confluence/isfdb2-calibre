@@ -22,9 +22,6 @@ from calibre.utils.icu import lower
 from calibre.utils.cleantext import clean_ascii_chars
 from calibre.utils.localization import get_udc
 
-import calibre_plugins.isfdb2.config as cfg
-MAX_RESULTS = cfg.plugin_prefs[cfg.STORE_NAME][cfg.KEY_MAX_DOWNLOADS]
-
 class ISFDB2(Source):
     name = 'ISFDB2'
     description = _('Downloads metadata and covers from ISFDB')
@@ -34,6 +31,17 @@ class ISFDB2(Source):
 
     capabilities = frozenset(['identify', 'cover'])
     touched_fields = frozenset(['title', 'authors', 'identifier:isfdb', 'identifier:isbn', 'publisher', 'pubdate', 'comments'])
+
+    options = (
+        Option(
+            'max_results',
+            'number',
+            5,
+            _('Maximum number of search results to download:'),
+            _('This setting only applies to ISBN and title / author searches. Book records with a valid ISFDB ID will return exactly one result.'),
+        ),
+    )
+
     has_html_comments = True
     supports_gzip_transfer_encoding = False
     cached_cover_url_is_reliable = True
@@ -41,13 +49,6 @@ class ISFDB2(Source):
     SEARCH_URL = 'http://www.isfdb.org/cgi-bin/se.cgi?%s'
     ADV_SEARCH_URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?%s'
     ID_URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?%s'
-
-    def config_widget(self):
-        '''
-        Overriding the default configuration screen for our own custom configuration
-        '''
-        from calibre_plugins.isfdb2.config import ConfigWidget
-        return ConfigWidget(self)
 
     def get_book_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
@@ -162,7 +163,7 @@ class ISFDB2(Source):
                 self._parse_search_results(log, html_from_url(query), matches, relevance, 1, timeout)
 
             # If we haven't reached the maximum number of results, also search for 
-            if len(matches) < MAX_RESULTS:
+            if len(matches) < self.prefs["max_results"]:
                 title = get_udc().decode(title)
                 authors = authors or []
                 authors = [get_udc().decode(a) for a in authors]
@@ -214,7 +215,7 @@ class ISFDB2(Source):
                 matches.add(result_url)
                 relevance_dict[result_url] = relevance
                 
-                if len(matches) >= MAX_RESULTS:
+                if len(matches) >= self.prefs["max_results"]:
                     break
 
     def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
