@@ -12,9 +12,8 @@ __docformat__ = 'restructuredtext en'
 import time
 from urllib import quote, urlencode
 from Queue import Queue, Empty
-from collections import OrderedDict
 
-from lxml.html import fromstring, tostring
+from lxml.html import fromstring
 
 from calibre import as_unicode
 from calibre.ebooks.metadata import check_isbn
@@ -57,7 +56,7 @@ class ISFDB2(Source):
         # ISFDB ID takes precedence over everything
         isfdb_id = identifiers.get('isfdb', None)
         if isfdb_id:
-            return get_book_url(identifiers)
+            return self.get_book_url(identifiers)
 
         # ISBN takes precedence over title and author
         isbn = check_isbn(identifiers.get('isbn', None))

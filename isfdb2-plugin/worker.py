@@ -10,7 +10,6 @@ Grant Drake <grant.drake@gmail.com>'''
 __docformat__ = 'restructuredtext en'
 
 import socket, re, datetime
-from collections import OrderedDict
 from threading import Thread
 
 from lxml.html import fromstring, tostring
@@ -191,7 +190,7 @@ class Worker(Thread): # Get details
                 contents = tostring(contents_node[0], method='html')
                 comments += contents
         if comments:
-            return comments
+            return sanitize_comments_html(comments)
 
     def parse_cover(self, root):
         img_src = root.xpath('//div[@id="content"]//table/tr[1]/td[1]/a/img/@src')
