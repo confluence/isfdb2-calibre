@@ -38,7 +38,7 @@ class ISFDB2(Source):
     minimum_calibre_version = (0, 9, 33)
 
     capabilities = frozenset(['identify', 'cover'])
-    touched_fields = frozenset(['title', 'authors', 'identifier:isfdb', 'identifier:isbn', 'publisher', 'pubdate', 'comments'])
+    touched_fields = frozenset(['title', 'authors', 'identifier:isfdb', 'identifier:isfdb-catalog', 'identifier:isbn', 'publisher', 'pubdate', 'comments'])
 
     options = (
         Option(
@@ -313,6 +313,7 @@ class Worker(Thread):
         isbn = None
         publisher = None
         pubdate = None
+        catalog_id = None
         
         detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
         
@@ -346,6 +347,10 @@ class Worker(Thread):
                 elif section == 'Date':                    
                     pubdate = self._convert_date_text(detail_node[0].tail.strip())
                     #self.log.info(pubdate)
+                elif section == 'Catalog ID':
+                    # UNTESTED
+                    catalog_id = detail_node[1].text_content().strip()
+                    #self.log.info(catalog_id)
             except:
                 self.log.exception('Error parsing section %r for url: %r' % (section, self.url) )
 
@@ -355,7 +360,6 @@ class Worker(Thread):
 
         mi = Metadata(title, authors)
         mi.set_identifier('isfdb', isfdb_id)
-        # TODO: should we also extract old-timey pre-ISBN catalog identifiers from book records that have them?
 
         if isbn:
             mi.isbn = isbn
@@ -363,6 +367,8 @@ class Worker(Thread):
             mi.publisher = publisher
         if pubdate:
             mi.pubdate = pubdate
+        if catalog_id:
+            mi.set_identifier('isfdb-catalog', catalog_id)
             
         try:
             contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
