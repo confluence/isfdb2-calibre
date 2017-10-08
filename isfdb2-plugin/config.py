@@ -51,7 +51,7 @@ class ConfigWidget(DefaultConfigWidget):
         other_group_box_layout.addWidget(max_label, 0, 0, 1, 1)
         self.max_downloads_spin = QtGui.QSpinBox(self)
         self.max_downloads_spin.setMinimum(1)
-        self.max_downloads_spin.setMaximum(5)
+        self.max_downloads_spin.setMaximum(10)
         self.max_downloads_spin.setProperty('value', c.get(KEY_MAX_DOWNLOADS, DEFAULT_STORE_VALUES[KEY_MAX_DOWNLOADS]))
         other_group_box_layout.addWidget(self.max_downloads_spin, 0, 1, 1, 1)
         other_group_box_layout.setColumnStretch(2, 1)

@@ -22,6 +22,9 @@ from calibre.utils.icu import lower
 from calibre.utils.cleantext import clean_ascii_chars
 from calibre.utils.localization import get_udc
 
+import calibre_plugins.isfdb2.config as cfg
+MAX_RESULTS = cfg.plugin_prefs[cfg.STORE_NAME][cfg.KEY_MAX_DOWNLOADS]
+
 class ISFDB2(Source):
     name = 'ISFDB2'
     description = _('Downloads metadata and covers from ISFDB')
@@ -110,7 +113,7 @@ class ISFDB2(Source):
             "TYPE": "Publication",
         })
 
-        return self.ADV_SEARCH_URL * urlencode(query)
+        return self.ADV_SEARCH_URL % urlencode(query)
             
     def get_cached_cover_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
@@ -126,79 +129,49 @@ class ISFDB2(Source):
         return None
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
-        log.info("identify")
         '''
-        Note this method will retry without identifiers automatically if no
-        match is found with identifiers.
+        This method will find exactly one result if an ISFDB ID is
+        present, otherwise up to the maximum searching first for the
+        ISBN and then for title and author.
         '''
-        matches = []
-        # If we have an ISFDB id then we do not need to fire a "search".
-        # Instead we will go straight to the URL for that book.
-        isfdb_id = identifiers.get('isfdb', None)
-        isbn = check_isbn(identifiers.get('isbn', None))
+        matches = set()
         br = self.browser
-        if isfdb_id:
-            matches.append(self.ID_URL + isfdb_id)
-        else:
-            title = get_udc().decode(title)
-            authors = authors or []
-            authors = [get_udc().decode(a) for a in authors]
-            query = self.create_query(log, title=title, authors=authors, identifiers=identifiers)
-            if query is None:
-                log.error('Insufficient metadata to construct query. Alas!')
-                return
-            isbn_match_failed = False
-            try:
-                log.info('Querying: %s' % query)
-                response = br.open_novisit(query, timeout=timeout)
-                raw = response.read().decode('cp1252', errors='replace').strip()
-                
-                if isbn:
-                    # Check whether we got redirected to a book page for ISBN searches.
-                    # If we did, will use the url.
-                    # If we didn't then treat it as no matches on ISFDB
-                    location = response.geturl()
-                    # If not an exact match on ISBN we can get a search results page back
-                    # XMS: This may be terribly different for ISFDB.
-                    # XMS: HOWEVER: 1563890933 returns multiple results!
-                    isbn_match_failed = location.find('/pl.cgi') < 0
-                    if raw.find('found 0 matches') == -1 and not isbn_match_failed:
-                        log.info('ISBN match location: %r' % location)
-                        matches.append(location)
-            except Exception as e:
-                if isbn and callable(getattr(e, 'getcode', None)) and e.getcode() == 404:
-                    # We did a lookup by ISBN but did not find a match
-                    # We will fallback to doing a lookup by title author
-                    log.info('Failed to find match for ISBN: %s' % isbn)
-                elif callable(getattr(e, 'getcode', None)) and e.getcode() == 404:
-                    log.error('No matches for identify query')
-                    return as_unicode(e)
-                else:
-                    err = 'Failed to make identify query'
-                    log.exception(err)
-                    return as_unicode(e)
 
-            # For successful ISBN-based searches we have already done everything we need to.
-            # So anything from this point below is for title/author based searches.
-            if not isbn or isbn_match_failed:
-                try:
-                    root = fromstring(clean_ascii_chars(raw))
-                except:
-                    msg = 'Failed to parse ISFDB page for query'
-                    log.exception(msg)
-                    return msg
-                # Now grab the matches from the search results, provided the
-                # title and authors appear to be for the same book
-                self._parse_search_results(log, title, authors, root, matches, timeout)
+        # If we have an ISFDB ID, we use it to construct the publication URL directly
+        
+        isfdb_id = identifiers.get('isfdb', None)
+        if isfdb_id:
+            matches.add(self.get_book_url(identifiers))
+        else:
+
+            def html_from_url(url):
+                response = br.open_novisit(url, timeout=timeout)
+                raw = response.read().decode('cp1252', errors='replace')
+                return fromstring(clean_ascii_chars(raw))
+                
+            isbn = check_isbn(identifiers.get('isbn', None))
+
+            # TODO TODO TODO now that matches are in a set we should record how reliable they are.
+            # ID = very; ISBN = somewhat; search = less. Maybe more refined if we add distance back in.
+
+            # If there's an ISBN, search by ISBN first
+            if isbn:
+                query = self.create_query(log, identifiers=identifiers)
+            
+                log.info('Querying: %s' % query)
+                self._parse_search_results(log, html_from_url(query), matches, timeout)
+
+            # If we haven't reached the maximum number of results, also search for 
+            if len(matches) < MAX_RESULTS:
+                title = get_udc().decode(title)
+                authors = authors or []
+                authors = [get_udc().decode(a) for a in authors]
+                query = self.create_query(log, title=title, authors=authors)
+            
+                log.info('Querying: %s' % query)
+                self._parse_search_results(log, html_from_url(query), matches, timeout)
 
         if abort.is_set():
-            return
-
-        if not matches:
-            if identifiers and title and authors:
-                log.info('No matches found with identifiers, retrying using only title and authors')
-                return self.identify(log, result_queue, abort, title=title, authors=authors, timeout=timeout)
-            log.error('No matches found with query: %r' % query)
             return
 
         from calibre_plugins.isfdb2.worker import Worker
@@ -222,78 +195,30 @@ class ISFDB2(Source):
         
         return None
 
-    def _parse_search_results(self, log, orig_title, orig_authors, root, matches, timeout):
-        UNSUPPORTED_FORMATS = [] # is there anything to exclude?
+    def _parse_search_results(self, log, root, matches, timeout):
+        '''This function doesn't filter the results in any way; we may
+        put some filtering back in later if it's actually necessary.'''
         
         results = root.xpath('//div[@id="main"]/table/tr')
         if not results:
             log.info('Unable to parse search results.')
             return
 
-        def ismatch(title, authors):
-            authors = lower(' '.join(authors))
-            title = lower(title)
-            match = not title_tokens
-            for t in title_tokens:
-                if lower(t) in title:
-                    match = True
-                    break
-            amatch = not author_tokens
-            for a in author_tokens:
-                if lower(a) in authors:
-                    amatch = True
-                    break
-            if not author_tokens: amatch = True
-            return match and amatch
-
-        import calibre_plugins.isfdb2.config as cfg
-        max_results = cfg.plugin_prefs[cfg.STORE_NAME][cfg.KEY_MAX_DOWNLOADS]
-
         for result in results:
             if not result.xpath('td'):
                 continue # header
-            
-            #log.info('Looking at result:')
-            title = result.xpath('td')[0].text_content().strip()
-
-            contributors = result.xpath('td[3]/a')
-            authors = []
-            for c in contributors:
-                author = c.text_content().split(',')[0]
-                #log.info('Found author:',author)
-                if author.strip():
-                    authors.append(author.strip())
-                #log.info('Looking at tokens:',author)
                 
-            title_tokens = list(self.get_title_tokens(orig_title))
-            author_tokens = list(self.get_author_tokens(orig_authors))
-            #log.info('Considering search result: %s %s' % (title, authors))
-            if not ismatch(title, authors):
-                #log.error('Rejecting as not close enough match: %s %s' % (title, authors))
-                continue
-
-            # Validate that the format is one we are interested in
-            format_details = result.xpath('td[8]/text()')
-            valid_format = False
-            for format in format_details:
-                #log.info('**Found format: %s'%format)
-                if format.lower() not in UNSUPPORTED_FORMATS:
-                    valid_format = True
-                    break
-            result_url = None
-            if valid_format:
-                # Get the detailed url to query next
-                result_url = ''.join(result.xpath('td[1]/a/@href'))
-                #log.info('**Found href: %s'%result_url)
+            result_url = ''.join(result.xpath('td[1]/a/@href'))
 
             if result_url:
-                matches.append(result_url)
-                if len(matches) >= max_results:
+                matches.add(result_url)
+                if len(matches) >= MAX_RESULTS:
                     break
 
 
     def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         cached_url = self.get_cached_cover_url(identifiers)
+        
         if cached_url is None:
             log.info('No cached cover found, running identify')
             rq = Queue()
