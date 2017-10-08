@@ -47,10 +47,7 @@ class ConfigWidget(DefaultConfigWidget):
 
         # Maximum # of title/author searches to review.
         max_label = QLabel('Maximum number of search matches to evaluate:', self)
-        max_label.setToolTip('''ISFDB doesn't provide a link to a large cover for every edition
- of every book. This value will take effect during
- author / title searches. Increasing it will increase
- the likelihood of finding a large cover.''')
+        max_label.setToolTip('''This value will take effect during author / title searches.''')
         other_group_box_layout.addWidget(max_label, 0, 0, 1, 1)
         self.max_downloads_spin = QtGui.QSpinBox(self)
         self.max_downloads_spin.setMinimum(1)

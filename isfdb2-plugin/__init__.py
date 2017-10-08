@@ -114,33 +114,17 @@ class ISFDB2(Source):
         return self.ADV_SEARCH_URL * urlencode(query)
             
     def get_cached_cover_url(self, identifiers):
-        url = None
         isfdb_id = identifiers.get('isfdb', None)
-        if isfdb_id is None:
-            isbn = identifiers.get('isbn', None)
-            if isbn is not None:
-                isfdb_id = self.cached_isbn_to_identifier(isbn)
-        if isfdb_id is not None:
-            url = self.cached_identifier_to_cover_url(isfdb_id)
-        return url
+        if isfdb_id:
+            return self.cached_identifier_to_cover_url(isfdb_id)
 
-    def cached_identifier_to_cover_url(self, id_):
-        with self.cache_lock:
-            url = self._get_cached_identifier_to_cover_url(id_)
-            if not url:
-                # Try for a "small" image in the cache
-                url = self._get_cached_identifier_to_cover_url('small/' + id_)
-            return url
-
-    def _get_cached_identifier_to_cover_url(self, id_):
-        # This must only be called once we have the cache lock
-        url = self._identifier_to_cover_url_cache.get(id_, None)
-        if not url:
-            # We could not get a url for this particular id.
-            for key in self._identifier_to_cover_url_cache.keys():
-                if key.startswith('key_prefix'):
-                    return self._identifier_to_cover_url_cache[key]
-        return url
+        # If we have multiple books with the same ISBN and no ID this may reuse the same cover for multiple books
+        # But we probably won't get into this situation, so let's leave this for now
+        isbn = identifiers.get('isbn', None)
+        if isbn:
+            return self.cached_identifier_to_cover_url(self.cached_isbn_to_identifier(isbn))
+                
+        return None
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         log.info("identify")
