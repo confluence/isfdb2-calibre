@@ -35,7 +35,7 @@ class ISFDB2(Source):
     description = _('Downloads metadata and covers from ISFDB')
     author = 'Adrianna Pińska'
     version = (1, 0, 0)
-    minimum_calibre_version = (0, 8, 0)
+    minimum_calibre_version = (0, 9, 33)
 
     capabilities = frozenset(['identify', 'cover'])
     touched_fields = frozenset(['title', 'authors', 'identifier:isfdb', 'identifier:isbn', 'publisher', 'pubdate', 'comments'])
