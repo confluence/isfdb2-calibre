@@ -29,6 +29,8 @@ DEFAULT_STORE_VALUES = {
     KEY_APPEND_CONTENTS: False
 }
 
+# TODO remove this whole thing and replace it with options
+
 # This is where all preferences for this plugin will be stored.
 plugin_prefs = JSONConfig('plugins/ISFDB2')
 

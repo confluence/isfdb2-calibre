@@ -135,13 +135,16 @@ class ISFDB2(Source):
         ISBN and then for title and author.
         '''
         matches = set()
+        relevance = {}
         br = self.browser
 
         # If we have an ISFDB ID, we use it to construct the publication URL directly
         
         isfdb_id = identifiers.get('isfdb', None)
         if isfdb_id:
-            matches.add(self.get_book_url(identifiers))
+            url = self.get_book_url(identifiers)
+            matches.add(url)
+            relevance[url] = 0 # most relevant
         else:
 
             def html_from_url(url):
@@ -151,15 +154,12 @@ class ISFDB2(Source):
                 
             isbn = check_isbn(identifiers.get('isbn', None))
 
-            # TODO TODO TODO now that matches are in a set we should record how reliable they are.
-            # ID = very; ISBN = somewhat; search = less. Maybe more refined if we add distance back in.
-
             # If there's an ISBN, search by ISBN first
             if isbn:
                 query = self.create_query(log, identifiers=identifiers)
             
                 log.info('Querying: %s' % query)
-                self._parse_search_results(log, html_from_url(query), matches, timeout)
+                self._parse_search_results(log, html_from_url(query), matches, relevance, 1, timeout)
 
             # If we haven't reached the maximum number of results, also search for 
             if len(matches) < MAX_RESULTS:
@@ -169,13 +169,13 @@ class ISFDB2(Source):
                 query = self.create_query(log, title=title, authors=authors)
             
                 log.info('Querying: %s' % query)
-                self._parse_search_results(log, html_from_url(query), matches, timeout)
+                self._parse_search_results(log, html_from_url(query), matches, relevance, 2, timeout)
 
         if abort.is_set():
             return
 
         from calibre_plugins.isfdb2.worker import Worker
-        workers = [Worker(url, result_queue, br, log, i, self) for i, url in enumerate(matches)]
+        workers = [Worker(url, result_queue, br, log, relevance[url], self) for url in matches]
 
         for w in workers:
             w.start()
@@ -195,7 +195,7 @@ class ISFDB2(Source):
         
         return None
 
-    def _parse_search_results(self, log, root, matches, timeout):
+    def _parse_search_results(self, log, root, matches, relevance_dict, relevance, timeout):
         '''This function doesn't filter the results in any way; we may
         put some filtering back in later if it's actually necessary.'''
         
@@ -212,44 +212,53 @@ class ISFDB2(Source):
 
             if result_url:
                 matches.add(result_url)
+                relevance_dict[result_url] = relevance
+                
                 if len(matches) >= MAX_RESULTS:
                     break
-
 
     def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         cached_url = self.get_cached_cover_url(identifiers)
         
-        if cached_url is None:
+        if not cached_url:
             log.info('No cached cover found, running identify')
             rq = Queue()
-            self.identify(log, rq, abort, title=title, authors=authors,
-                    identifiers=identifiers)
+            self.identify(log, rq, abort, title=title, authors=authors, identifiers=identifiers)
+            
             if abort.is_set():
                 return
+
             results = []
+
             while True:
                 try:
                     results.append(rq.get_nowait())
                 except Empty:
                     break
+
             results.sort(key=self.identify_results_keygen(title=title, authors=authors, identifiers=identifiers))
+
             for mi in results:
                 cached_url = self.get_cached_cover_url(mi.identifiers)
                 if cached_url is not None:
                     break
-        if cached_url is None:
+                    
+        if not cached_url:
             log.info('No cover found')
             return
 
         if abort.is_set():
             return
+        
         br = self.browser
         log.info('Downloading cover from:', cached_url)
+
         try:
             cdata = br.open_novisit(cached_url, timeout=timeout).read()
             result_queue.put((self, cdata))
         except:
             log.exception('Failed to download cover from:', cached_url)
+
 
 if __name__ == '__main__': # tests
     # To run these test use:
