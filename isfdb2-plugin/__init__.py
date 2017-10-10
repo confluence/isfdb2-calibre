@@ -68,7 +68,8 @@ class ISFDB2(Source):
         # ISFDB ID takes precedence over everything
         isfdb_id = identifiers.get('isfdb', None)
         if isfdb_id:
-            return self.get_book_url(identifiers)
+            _, _, url = self.get_book_url(identifiers)
+            return url
 
         # ISBN takes precedence over title and author
         isbn = check_isbn(identifiers.get('isbn', None))
@@ -155,7 +156,7 @@ class ISFDB2(Source):
         
         isfdb_id = identifiers.get('isfdb', None)
         if isfdb_id:
-            url = self.get_book_url(identifiers)
+            _, _, url = self.get_book_url(identifiers)
             matches.add(url)
             relevance[url] = 0 # most relevant
         else:
@@ -345,7 +346,13 @@ class Worker(Thread):
                     publisher = detail_node.xpath('a')[0].text_content().strip()
                     #self.log.info(publisher)
                 elif section == 'Date':                    
-                    pubdate = self._convert_date_text(detail_node[0].tail.strip())
+                    date_text = detail_node[0].tail.strip()
+                    # We use this instead of strptime to handle dummy days and months
+                    # E.g. 1965-00-00
+                    year, month, day = [int(p) for p in date_text.split("-")]
+                    month = month or 1
+                    day = day or 1
+                    pubdate = datetime.datetime(year, month, day, tzinfo=utc_tz)
                     #self.log.info(pubdate)
                 elif section == 'Catalog ID':
                     # UNTESTED
@@ -384,7 +391,7 @@ class Worker(Thread):
             img_src = root.xpath('//div[@id="content"]//table/tr[1]/td[1]/a/img/@src')
             if img_src:
                 mi.cover_url = img_src[0]
-                self.plugin.cache_identifier_to_cover_url(self.isfdb_id, mi.cover_url)
+                self.plugin.cache_identifier_to_cover_url(isfdb_id, mi.cover_url)
         except:
             self.log.exception('Error parsing cover for url: %r'%self.url)
         
@@ -399,22 +406,6 @@ class Worker(Thread):
 
         self.plugin.clean_downloaded_metadata(mi)
         self.result_queue.put(mi)
-
-    def _convert_date_text(self, date_text):
-        # We use this instead of strptime to handle dummy days and months
-        # E.g. 1965-00-00
-        try:
-            year, month, day = [int(p) for p in date_text.split(":")]
-
-            if month == 0:
-                month = 1
-
-            if day == 0:
-                day = 1
-            
-            return datetime.datetime(year, month, day, tzinfo=utc_tz)
-        except:
-            return None # not a parseable date
 
 
 if __name__ == '__main__': # tests
