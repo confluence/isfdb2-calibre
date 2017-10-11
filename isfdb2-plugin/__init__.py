@@ -38,7 +38,7 @@ class ISFDB(Source):
     minimum_calibre_version = (0, 9, 33)
 
     capabilities = frozenset(['identify', 'cover'])
-    touched_fields = frozenset(['title', 'authors', 'identifier:isfdb', 'identifier:isfdb-catalog', 'identifier:isbn', 'publisher', 'pubdate', 'comments'])
+    touched_fields = frozenset(['title', 'authors', 'identifier:isfdb', 'identifier:isfdb-catalog', 'identifier:isfdb-title', 'identifier:isbn', 'publisher', 'pubdate', 'comments'])
 
     options = (
         Option(
@@ -235,7 +235,13 @@ class ISFDB(Source):
         
         if not cached_url:
             # TODO: fetch the covers from the title covers page instead!
-            # TODO: how do we get from publication to title?
+            # how do we get from publication to title?
+            # cache a title identifier from the publication details if it exists
+            # but check if the name / author match
+            # otherwise do a title query with exact title and author name
+            # and filter out only book results (NOVEL, ANTHOLOGY, COLLECTION???)
+            # (what about anthologies? what gets entered as the author name?)
+            # then take the first result, parse out title ids, and pass to workers
             log.info('No cached cover found, running identify')
             rq = Queue()
             self.identify(log, rq, abort, title=title, authors=authors, identifiers=identifiers)
@@ -293,36 +299,62 @@ class Worker(Thread):
 
     def run(self):
         try:
-            self.get_details()
+            response = self.browser.open_novisit(self.url, timeout=self.timeout).read()
+            raw = response.decode('cp1252', errors='replace')
+            root = fromstring(clean_ascii_chars(raw))
+
+            # TODO alternatively, parse a title cover page
+            self.parse_publication(root)
         except Exception as e:
-            self.log.exception('get_details failed in worker for url %r with error %r' % (self.url, e))
+            self.log.exception('Worker failed to fetch and parse url %r with error %r' % (self.url, e))
 
-    def get_details(self):
-        # TODO stripping out all exception handling; may put some back when we see what exceptions we get
-        self.log.info('Worker fetching ISFDB url: %r' % self.url)
+    # TODO: should all these parsing functions be class methods on a parser object instead?
+    # Maybe we should have helper objects to store all this state?
+    # Objects for Publication, Title, Publications, Titles, Title Covers, which know how to parse themselves and return dicts of info?
+
+    def parse_title_covers(self):
+        pass # TODO: this will be a function parsing a title covers page
+
+    def parse_publication(self, root):
+        self.log.info('Worker parsing ISFDB url: %r' % self.url)
         
-        response = self.browser.open_novisit(self.url, timeout=self.timeout).read()
-        raw = response.decode('cp1252', errors='replace')
-        root = fromstring(clean_ascii_chars(raw))
-
         isfdb_id = None
         try:
             isfdb_id = re.search('(\d+)$', self.url).groups(0)[0]
         except:
             self.log.exception('Error parsing ISFDB ID for url: %r' % self.url)
-            
-        title = None
-        authors = []
-        isbn = None
-        publisher = None
-        pubdate = None
-        catalog_id = None
+
+        # TODO TODO TODO middle of refactoring
+        
+        #title = None
+        #authors = []
+        
+        #isbn = None
+        #publisher = None
+        #pubdate = None
+        #catalog_id = None
+        #title_id = None
         
         detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
         
         if not detail_nodes:
             detail_nodes = root.xpath('//div[@id="content"]/div/ul/li') # no table (on records with no image)
 
+        detail_dict = dict((n[0].text_content().strip().rstrip(':'), n) for n in detail_nodes)
+
+        # Title and author are compulsory, so if we can't parse these we abort
+
+        title_node = detail_dict.pop("Publication")
+        title = title_node[0].tail.strip()
+        if not title:
+            # assume an extra span with a transliterated title tooltip
+            title = title_node[1].text_content().strip()
+
+        if "Authors" in detail_dict:
+            author_node = detail_dict.pop("Authors")
+        
+
+        # TODO: put these in a dict, process title and authors first, then process the rest, removing intermediate variables
         for detail_node in detail_nodes:
             section = detail_node[0].text_content().strip().rstrip(':')
             #self.log.info(section)
@@ -360,6 +392,10 @@ class Worker(Thread):
                     # UNTESTED
                     catalog_id = detail_node[1].text_content().strip()
                     #self.log.info(catalog_id)
+                elif section == 'Container Title':
+                    title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
+                    title_id = re.search('(\d+)$', title_url).groups(0)[0]
+                    #self.log.info(title_id)
             except:
                 self.log.exception('Error parsing section %r for url: %r' % (section, self.url) )
 
@@ -370,14 +406,16 @@ class Worker(Thread):
         mi = Metadata(title, authors)
         mi.set_identifier('isfdb', isfdb_id)
 
-        if isbn:
-            mi.isbn = isbn
-        if publisher:
-            mi.publisher = publisher
-        if pubdate:
-            mi.pubdate = pubdate
-        if catalog_id:
-            mi.set_identifier('isfdb-catalog', catalog_id)
+        #if isbn:
+            #mi.isbn = isbn
+        #if publisher:
+            #mi.publisher = publisher
+        #if pubdate:
+            #mi.pubdate = pubdate
+        #if catalog_id:
+            #mi.set_identifier('isfdb-catalog', catalog_id)
+        #if title_id:
+            #mi.set_identifier('isfdb-title', title_id)
             
         try:
             contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
@@ -431,28 +469,35 @@ if __name__ == '__main__': # tests
         return test
 
     # Test the plugin.
+    # TODO: new test cases
+    # by id
+    # by isbn
+    # by author / title
+    # anthology
+    # with cover
+    # without cover
     test_identify_plugin(ISFDB.name,
         [
-            (# A book with an ISBN
-                {'identifiers':{'isbn': '9780345470638'},
-                    'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
-                [title_test('Black House', exact=True),
-                 authors_test(['Stephen King', 'Peter Straub']),
-                 cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
-            ),
+            #(# A book with an ISBN
+                #{'identifiers':{'isbn': '9780345470638'},
+                    #'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
+                #[title_test('Black House', exact=True),
+                 #authors_test(['Stephen King', 'Peter Straub']),
+                 #cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
+            #),
 
-            (# A book with no ISBN specified
-                {'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
-                [title_test('Black House', exact=True),
-                 authors_test(['Stephen King', 'Peter Straub']),
-                 cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
-            ),
+            #(# A book with no ISBN specified
+                #{'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
+                #[title_test('Black House', exact=True),
+                 #authors_test(['Stephen King', 'Peter Straub']),
+                 #cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
+            #),
 
-            (# A book with an ISFDB ID
-                {'identifiers':{'isfdb': '4638'},
-                    'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
-                [title_test('Black House', exact=True),
-                 authors_test(['Stephen King', 'Peter Straub']),
-                 cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
-            )
+            #(# A book with an ISFDB ID
+                #{'identifiers':{'isfdb': '4638'},
+                    #'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
+                #[title_test('Black House', exact=True),
+                 #authors_test(['Stephen King', 'Peter Straub']),
+                 #cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
+            #)
         ], fail_missing_meta=False)
