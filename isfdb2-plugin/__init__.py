@@ -29,6 +29,15 @@ from calibre.utils.cleantext import clean_ascii_chars
 from calibre.utils.localization import get_udc
 from calibre.utils.date import utc_tz
 
+class ISFDBObject(object):
+    @classmethod
+    def fetch(cls, browser, url):
+        response = browser.open_novisit(url, timeout=timeout)
+        raw = response.read().decode('cp1252', errors='replace')
+        return fromstring(clean_ascii_chars(raw))
+
+class PublicationsList()
+
 
 class ISFDB(Source):
     name = 'ISFDB'
@@ -54,6 +63,7 @@ class ISFDB(Source):
     supports_gzip_transfer_encoding = False
     cached_cover_url_is_reliable = True
 
+    # TODO: delegate to helper objects
     SEARCH_URL = 'http://www.isfdb.org/cgi-bin/se.cgi?%s'
     ADV_SEARCH_URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?%s'
     ID_URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?%s'
@@ -63,7 +73,8 @@ class ISFDB(Source):
         if isfdb_id:
             url = self.ID_URL % isfdb_id
             return ('isfdb', isfdb_id, url)
-
+            
+    # TODO: delegate to helper objects
     def create_query(self, log, title=None, authors=None, identifiers={}):
         # ISFDB ID takes precedence over everything
         isfdb_id = identifiers.get('isfdb', None)
