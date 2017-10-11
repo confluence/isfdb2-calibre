@@ -75,6 +75,10 @@ class TitleCovers(ISFDBObject):
     @classmethod
     def from_id(cls, title_id):
         pass # get id from url
+        
+    @classmethod
+    def from_url(cls, url):
+        pass # get id from url
 
 
 class ISFDB(Source):
