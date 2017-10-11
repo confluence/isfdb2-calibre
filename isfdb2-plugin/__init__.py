@@ -30,11 +30,11 @@ from calibre.utils.localization import get_udc
 from calibre.utils.date import utc_tz
 
 
-class ISFDB2(Source):
-    name = 'ISFDB2'
+class ISFDB(Source):
+    name = 'ISFDB'
     description = _('Downloads metadata and covers from ISFDB')
     author = 'Adrianna Pińska'
-    version = (1, 0, 0)
+    version = (2, 0, 0)
     minimum_calibre_version = (0, 9, 33)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -234,6 +234,8 @@ class ISFDB2(Source):
         cached_url = self.get_cached_cover_url(identifiers)
         
         if not cached_url:
+            # TODO: fetch the covers from the title covers page instead!
+            # TODO: how do we get from publication to title?
             log.info('No cached cover found, running identify')
             rq = Queue()
             self.identify(log, rq, abort, title=title, authors=authors, identifiers=identifiers)
@@ -429,7 +431,7 @@ if __name__ == '__main__': # tests
         return test
 
     # Test the plugin.
-    test_identify_plugin(ISFDB2.name,
+    test_identify_plugin(ISFDB.name,
         [
             (# A book with an ISBN
                 {'identifiers':{'isbn': '9780345470638'},
