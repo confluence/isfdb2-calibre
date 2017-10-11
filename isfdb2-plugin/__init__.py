@@ -30,13 +30,51 @@ from calibre.utils.localization import get_udc
 from calibre.utils.date import utc_tz
 
 class ISFDBObject(object):
+    def __init__(self, root):
+        self.root = root
+    
     @classmethod
     def fetch(cls, browser, url):
         response = browser.open_novisit(url, timeout=timeout)
         raw = response.read().decode('cp1252', errors='replace')
         return fromstring(clean_ascii_chars(raw))
 
-class PublicationsList()
+    @classmethod
+    def advanced_search_url(cls, params):
+        pass # update default parameters; return constructed query
+
+
+class PublicationsList(ISFDBObject):
+    @classmethod
+    def from_isbn(cls, isbn):
+        pass # construct advanced search query
+    
+    @classmethod    
+    def from_title_and_authors(cls, title, authors):
+        pass # construct advanced search query
+
+
+class TitleList(ISFDBObject):    
+    @classmethod    
+    def from_title_and_authors(cls, title, authors):
+        pass # construct advanced search query
+
+
+class Publication(ISFDBObject):
+    @classmethod
+    def from_id(cls, isfdb_id):
+        pass
+        
+    @classmethod
+    def from_url(cls, url):
+        pass # get id from url
+
+
+
+class TitleCovers(ISFDBObject):
+    @classmethod
+    def from_id(cls, title_id):
+        pass # get id from url
 
 
 class ISFDB(Source):
@@ -83,6 +121,8 @@ class ISFDB(Source):
             return url
 
         # ISBN takes precedence over title and author
+        # PROBLEM: if there is one matching publication this search redirects, which introduces inconsistency.
+        # TODO: rather use the advanced search for this.
         isbn = check_isbn(identifiers.get('isbn', None))
         if isbn:
             return self.SEARCH_URL % urlencode({"type": "ISBN", "arg": isbn})
