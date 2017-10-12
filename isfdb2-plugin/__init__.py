@@ -30,55 +30,68 @@ from calibre.utils.localization import get_udc
 from calibre.utils.date import utc_tz
 
 class ISFDBObject(object):
-    def __init__(self, root):
-        self.root = root
-    
     @classmethod
-    def fetch(cls, browser, url):
+    def root_from_url(cls, browser, url):
         response = browser.open_novisit(url, timeout=timeout)
         raw = response.read().decode('cp1252', errors='replace')
         return fromstring(clean_ascii_chars(raw))
 
     @classmethod
-    def advanced_search_url(cls, params):
+    def url_from_advanced_search(cls, params):
         pass # update default parameters; return constructed query
 
 
 class PublicationsList(ISFDBObject):
     @classmethod
-    def from_isbn(cls, isbn):
-        pass # construct advanced search query
+    def url_from_isbn(cls, isbn):
+        pass # return advanced search query
     
     @classmethod    
-    def from_title_and_authors(cls, title, authors):
-        pass # construct advanced search query
+    def url_from_title_and_authors(cls, title, authors):
+        pass # return advanced search query
+
+    @classmethod
+    def from_url(cls, url):
+        pass # fetch and return parsed object
 
 
 class TitleList(ISFDBObject):    
     @classmethod    
-    def from_title_and_authors(cls, title, authors):
-        pass # construct advanced search query
+    def url_from_title_and_authors(cls, title, authors):
+        pass # return advanced search query
+
+    @classmethod
+    def from_url(cls, url):
+        pass # fetch and return parsed object
 
 
 class Publication(ISFDBObject):
     @classmethod
-    def from_id(cls, isfdb_id):
-        pass
+    def url_from_id(cls, isfdb_id):
+        pass # return url
         
     @classmethod
+    def id_from_url(cls, url):
+        pass # return id
+
+    @classmethod
     def from_url(cls, url):
-        pass # get id from url
+        pass # fetch and return parsed object
 
 
 
 class TitleCovers(ISFDBObject):
     @classmethod
-    def from_id(cls, title_id):
-        pass # get id from url
+    def url_from_id(cls, title_id):
+        pass # return url
         
     @classmethod
+    def id_from_url(cls, url):
+        pass # return id
+
+    @classmethod
     def from_url(cls, url):
-        pass # get id from url
+        pass # fetch and return parsed object
 
 
 class ISFDB(Source):
