@@ -10,9 +10,14 @@ Grant Drake <grant.drake@gmail.com>'''
 __docformat__ = 'restructuredtext en'
 
 import re
+import datetime
+
 from lxml.html import fromstring, tostring
+#from urllib import quote
+from urllib import urlencode
+
 from calibre.utils.cleantext import clean_ascii_chars
-from urllib import quote, urlencode
+from calibre.library.comments import sanitize_comments_html
 
 class ISFDBObject(object):
     ADV_SEARCH_URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?%s'
@@ -184,7 +189,7 @@ class Publication(ISFDBObject):
                     year, month, day = [int(p) for p in date_text.split("-")]
                     month = month or 1
                     day = day or 1
-                    properties["pubdate"] = datetime.datetime(year, month, day, tzinfo=utc_tz)
+                    properties["pubdate"] = datetime.datetime(year, month, day)
                     #self.log.info(properties["pubdate"])
                 elif section == 'Catalog ID':
                     # UNTESTED AND BROKEN

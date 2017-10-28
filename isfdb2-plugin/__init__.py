@@ -10,23 +10,15 @@ Grant Drake <grant.drake@gmail.com>'''
 __docformat__ = 'restructuredtext en'
 
 import time
-import datetime
-import re
 
 from Queue import Queue, Empty
 from threading import Thread
-
-from lxml.html import fromstring, tostring
 
 from calibre.ebooks.metadata import check_isbn
 from calibre.ebooks.metadata.sources.base import Source, Option
 from calibre.ebooks.metadata.book.base import Metadata
 
-from calibre.library.comments import sanitize_comments_html
-
-from calibre.utils.cleantext import clean_ascii_chars
-from calibre.utils.localization import get_udc
-from calibre.utils.date import utc_tz
+#from calibre.utils.localization import get_udc
 
 from calibre_plugins.isfdb.objects import Publication, PublicationsList, TitleList, TitleCovers
 
@@ -104,6 +96,14 @@ class ISFDB(Source):
             if abort.is_set():
                 return
             
+            def add_matches(urls, relevance_score):
+                for url in urls:
+                    matches.add(url)
+                    relevance[url] = relevance_score
+                    
+                    if len(matches) >= self._max_results():
+                        break
+            
             isbn = check_isbn(identifiers.get('isbn', None))
 
             # If there's an ISBN, search by ISBN first
@@ -111,21 +111,16 @@ class ISFDB(Source):
                 query = PublicationsList.url_from_isbn(isbn)
                 urls = PublicationsList.from_url(self.browser, query, timeout, log)
                 
-                for url in urls:
-                    matches.add(url)
-                    relevance[url] = 1
-                    
-                    if len(matches) >= self._max_results():
-                        break
+                add_matches(urls, 1)
                     
             if abort.is_set():
                 return
                 
             # If we haven't reached the maximum number of results, also search by title and author
             if len(matches) < self._max_results():
-                title = get_udc().decode(title)
+                #title = get_udc().decode(title)
                 authors = authors or []
-                authors = [get_udc().decode(a) for a in authors]
+                #authors = [get_udc().decode(a) for a in authors]
                 
                 title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
                 author_tokens = self.get_author_tokens(authors, only_first_author=True)
@@ -133,12 +128,7 @@ class ISFDB(Source):
                 query = PublicationsList.url_from_title_and_authors(title_tokens, author_tokens)
                 urls = PublicationsList.from_url(self.browser, query, timeout, log)
                 
-                for url in urls:
-                    matches.add(url)
-                    relevance[url] = 2
-                    
-                    if len(matches) >= self._max_results():
-                        break
+                add_matches(urls, 2)
 
         if abort.is_set():
             return
@@ -212,7 +202,7 @@ class ISFDB(Source):
         except:
             log.exception('Failed to download cover from:', cached_url)
 
-
+# TODO we can probably eliminate this and use a plain thread object
 class Worker(Thread):
     '''
     Get book details from ISFDB book page in a separate thread.
@@ -257,7 +247,7 @@ class Worker(Thread):
             mi.source_relevance = self.relevance
 
             # TODO: do we actually want / need this?
-            if pub.get("isfdb") and pub.get("isbn")
+            if pub.get("isfdb") and pub.get("isbn"):
                 self.plugin.cache_isbn_to_identifier(pub["isbn"], pub["isfdb"])
 
             self.plugin.clean_downloaded_metadata(mi)
