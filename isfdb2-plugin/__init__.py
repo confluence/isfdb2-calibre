@@ -31,15 +31,22 @@ class ISFDB(Source):
     minimum_calibre_version = (0, 9, 33)
 
     capabilities = frozenset(['identify', 'cover'])
+    can_get_multiple_covers = True
     touched_fields = frozenset(['title', 'authors', 'identifier:isfdb', 'identifier:isfdb-catalog', 'identifier:isfdb-title', 'identifier:isbn', 'publisher', 'pubdate', 'comments'])
 
     options = (
         Option(
             'max_results',
             'number',
-            5,
+            10,
             _('Maximum number of search results to download:'),
             _('This setting only applies to ISBN and title / author searches. Book records with a valid ISFDB ID will return exactly one result.'),
+        ),
+        Option(
+            'max_covers',
+            'number', 10, 
+            _('Maximum number of covers to download:'),
+            _('The maximum number of covers to download. This only applies to publication records with no cover. If there is a cover associated with the record, only that cover will be downloaded.')
         ),
     )
 
@@ -72,10 +79,6 @@ class ISFDB(Source):
                 
         return None
 
-    def _max_results(self):
-        # At least one result, and no more than 10
-        return max(min(self.prefs["max_results"], 10), 1)
-
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         '''
         This method will find exactly one result if an ISFDB ID is
@@ -101,7 +104,7 @@ class ISFDB(Source):
                     matches.add(url)
                     relevance[url] = relevance_score
                     
-                    if len(matches) >= self._max_results():
+                    if len(matches) >= self.prefs["max_results"]:
                         break
             
             isbn = check_isbn(identifiers.get('isbn', None))
@@ -119,7 +122,7 @@ class ISFDB(Source):
                 return
                 
             # If we haven't reached the maximum number of results, also search by title and author
-            if len(matches) < self._max_results():
+            if len(matches) < self.prefs["max_results"]:
                 #title = get_udc().decode(title)
                 authors = authors or []
                 #authors = [get_udc().decode(a) for a in authors]
@@ -127,7 +130,7 @@ class ISFDB(Source):
                 title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
                 author_tokens = self.get_author_tokens(authors, only_first_author=True)
                 
-                query = PublicationsList.url_from_title_and_authors(title_tokens, author_tokens)
+                query = PublicationsList.url_from_title_and_author(title_tokens, author_tokens)
                 urls = PublicationsList.from_url(self.browser, query, timeout, log)
                 
                 add_matches(urls, 2)
@@ -155,56 +158,41 @@ class ISFDB(Source):
         
         return None
 
-    def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
+    def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30, get_best_cover=False):
+        # Problem: the author and title are not available until the metadata has been saved -- it doesn't seem possible to cache them.
+        # We can create our own cache?
+        urls = []
+        
         cached_url = self.get_cached_cover_url(identifiers)
         
-        if not cached_url:
-            # TODO: fetch the covers from the title covers page instead!
-            # how do we get from publication to title?
-            # cache a title identifier from the publication details if it exists
-            # but check if the name / author match
-            # otherwise do a title query with exact title and author name
-            # and filter out only book results (NOVEL, ANTHOLOGY, COLLECTION???)
-            # (what about anthologies? what gets entered as the author name?)
-            # then take the first result, parse out title ids, and pass to workers
-            log.info('No cached cover found, running identify')
-            rq = Queue()
-            self.identify(log, rq, abort, title=title, authors=authors, identifiers=identifiers)
+        if cached_url:
+            urls.append(cached_url)
             
-            if abort.is_set():
-                return
-
-            results = []
-
-            while True:
-                try:
-                    results.append(rq.get_nowait())
-                except Empty:
-                    break
-
-            results.sort(key=self.identify_results_keygen(title=title, authors=authors, identifiers=identifiers))
-
-            for mi in results:
-                cached_url = self.get_cached_cover_url(mi.identifiers)
-                if cached_url is not None:
-                    break
-                    
-        if not cached_url:
-            log.info('No cover found')
-            return
+        else:
+            # Serial first; then use workers?
+            title_id = identifiers.get('isfdb-title', None)
+            
+            if not title_id:
+                title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=False)
+                author_tokens = self.get_author_tokens(authors, only_first_author=True)
+                
+                query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
+                titles = TitleList.from_url(self.browser, query, timeout, log)
+                
+                log.info(titles)
+                title_id = TitleCovers.id_from_url(titles[0])
+            
+            title_covers_url = TitleCovers.url_from_id(title_id)
+            urls.extend(TitleCovers.from_url(self.browser, title_covers_url, timeout, log))
 
         if abort.is_set():
             return
         
-        log.info('Downloading cover from:', cached_url)
+        log.info(urls)
+        
+        self.download_multiple_covers(title, authors, urls, get_best_cover, timeout, result_queue, abort, log)
 
-        try:
-            cdata = self.browser.open_novisit(cached_url, timeout=timeout).read()
-            result_queue.put((self, cdata))
-        except:
-            log.exception('Failed to download cover from:', cached_url)
 
-# TODO we can probably eliminate this and use a plain thread object
 class Worker(Thread):
     '''
     Get book details from ISFDB book page in a separate thread.

@@ -51,7 +51,7 @@ class PublicationsList(ISFDBObject):
         return cls.url_from_advanced_search(params)
     
     @classmethod    
-    def url_from_title_and_authors(cls, title_tokens, author_tokens):
+    def url_from_title_and_author(cls, title_tokens, author_tokens):
         # see if this makes an actual difference
         #title_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in title_tokens]
         #author_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in author_tokens]
@@ -113,12 +113,9 @@ class PublicationsList(ISFDBObject):
 
 class TitleList(ISFDBObject):
     @classmethod    
-    def url_from_title_and_authors(cls, title_tokens, author_tokens):
-        # see if this makes an actual difference
-        #title_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in title_tokens]
-        #author_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in author_tokens]
-        title = '+'.join(title_tokens)
-        authors = '+'.join(author_tokens)
+    def url_from_title_and_author(cls, title_tokens, author_tokens):
+        title = ' '.join(title_tokens)
+        author = ' '.join(author_tokens)
         
         params = {
             "USE_1": "title_title",
@@ -126,8 +123,8 @@ class TitleList(ISFDBObject):
             "TERM_1": title,
             "CONJUNCTION_1": "AND",
             "USE_2": "author_canonical",
-            "OPERATOR_2": "contains",
-            "TERM_2": authors,
+            "OPERATOR_2": "contains", # because there may be multiple authors
+            "TERM_2": author,
             "ORDERBY": "title_title",
             "START": "0",
             "TYPE": "Title",
@@ -140,7 +137,7 @@ class TitleList(ISFDBObject):
         title_urls = []
         
         root = cls.root_from_url(browser, url, timeout, log)
-        rows = root.xpath('//div[@id="main"]/table/tr')
+        rows = root.xpath('//div[@id="main"]/form/table/tr')
 
         for row in rows:
             if not row.xpath('td'):
@@ -249,11 +246,11 @@ class TitleCovers(ISFDBObject):
         return re.search('(\d+)$', url).groups(0)[0]
 
     @classmethod
-    def from_url(cls, browser, url, timeout, log):
+    def from_url(cls, browser, url, timeout, log):        
         root = cls.root_from_url(browser, url, timeout, log)
-        pass # return parsed object
+        return root.xpath('//div[@id="main"]/a/img/@src')
+        
     
-    
-# For completeness, make it possible to search by title id (although it doesn't seem super useful)
+# For completeness, make it possible to fetch publications off a title page via title id (although it doesn't seem super useful)
 class Title(ISFDBObject):
     pass
