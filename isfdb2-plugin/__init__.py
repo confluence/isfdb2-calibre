@@ -247,7 +247,7 @@ class Worker(Thread):
                 if id_name in pub:
                     mi.set_identifier(id_name, pub[id_name])
             
-            for attr in ("isbn", "publisher", "pubdate", "cover_url", "comments"):
+            for attr in ("isbn", "publisher", "pubdate", "comments"):
                 if attr in pub:
                     setattr(mi, attr, pub[attr])
             
@@ -275,55 +275,29 @@ if __name__ == '__main__': # tests
     # To run these test use:
     # calibre-debug -e __init__.py
     from calibre import prints
-    from calibre.ebooks.metadata.sources.test import (test_identify_plugin, title_test, authors_test)
-
-    def cover_test(cover_url):
-        if cover_url is not None:
-            cover_url = cover_url.lower()
-
-        def test(mi):
-            mc = mi.cover_url
-            if mc is not None:
-                mc = mc.lower()
-            if mc == cover_url:
-                return True
-            prints('Cover test failed. Expected: \'%s\' found: ' % cover_url, mc)
-            return False
-        return test
+    from calibre.ebooks.metadata.sources.test import (test_identify_plugin, title_test, authors_test, isbn_test)
 
     # Test the plugin.
     # TODO: new test cases
-    # by id
     # by catalog id
     # by title id
-    # by isbn
-    # by author / title
     # multiple authors
     # anthology
     # with cover
     # without cover
     test_identify_plugin(ISFDB.name,
         [
-            #(# A book with an ISBN
-                #{'identifiers':{'isbn': '9780345470638'},
-                    #'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
-                #[title_test('Black House', exact=True),
-                 #authors_test(['Stephen King', 'Peter Straub']),
-                 #cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
-            #),
+            (# By ISFDB
+                {'identifiers': {'isfdb': '262210'}},
+                [title_test('The Silver Locusts', exact=True), authors_test(['Ray Bradbury'])]
+            ),
+            (# By ISBN
+                {'identifiers': {'isbn': '0330020420'}},
+                [title_test('All Flesh Is Grass', exact=True), authors_test(['Clifford D. Simak'])]
+            ),
+            (# By author and title
+                {'title': 'The End of Eternity', 'authors': ['Isaac Asimov']},
+                [title_test('The End of Eternity', exact=True), authors_test(['Isaac Asimov'])]
+            ),
 
-            #(# A book with no ISBN specified
-                #{'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
-                #[title_test('Black House', exact=True),
-                 #authors_test(['Stephen King', 'Peter Straub']),
-                 #cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
-            #),
-
-            #(# A book with an ISFDB ID
-                #{'identifiers':{'isfdb': '4638'},
-                    #'title':'Black House', 'authors':['Stephen King', 'Peter Straub']},
-                #[title_test('Black House', exact=True),
-                 #authors_test(['Stephen King', 'Peter Straub']),
-                 #cover_test('http://images.amazon.com/images/P/034547063X.01.LZZZZZZZ.jpg')]
-            #)
         ], fail_missing_meta=False)
