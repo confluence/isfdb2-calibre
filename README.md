@@ -2,7 +2,7 @@
 
 This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguing of physical collections of speculative fiction books. It is based on the [ISFDB Calibre plugin][1] written by Xtina Schelin, which I am maintaining in a [fork][2].
 
-##Installation instructions (Linux and Mac; Windows should be similar):
+## Installation instructions (Linux and Mac; Windows should be similar):
 
     # clone the repository
     git clone https://github.com/confluence/isfdb2-calibre.git
@@ -13,7 +13,7 @@ This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguin
     # add the plugin to calibre
     calibre-customize -b .
 
-##Features:
+## Features:
 
 * If an ISFDB ID is present in the book record, metadata from exactly one ISFDB publication record is fetched. This allows Calibre to be used as a catalogue of specific book editions (e.g. a metadata-only catalogue of printed books). Calibre merges metadata records with the same title and author and it's impossible to disable this behaviour, so all other source plugins must be disabled if you want to use the plugin in this mode.
 
@@ -21,13 +21,13 @@ This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguin
 
 * If there is a cover associated with the selected publication, only this cover will be returned. If there is no such cover, the plugin will attempt to find the ISFDB title with a title and author search and fetch more covers associated with that title, up to a configurable maximum.
 
-##Details:
+## Details:
 
 The plugin understands the following IDs: `isbn` (ISBN), `isfdb` (ISFDB publication ID), `isfdb-title` (ISFDB title ID; not yet searchable), `isfdb-catalog` (any older non-ISBN publisher's catalog identifier).
 
 This code is a work in progress, but is currently in a usable state. Pull requests are welcome!
 
-##Future work:
+## Future work:
 
 In future I plan to add UI features to simplify bulk entry of book records by ISFDB ID:
 
