@@ -101,6 +101,9 @@ class ISFDB(Source):
             matches.add(url)
             relevance[url] = 0 # most relevant
         else:
+            if abort.is_set():
+                return
+            
             isbn = check_isbn(identifiers.get('isbn', None))
 
             # If there's an ISBN, search by ISBN first
@@ -114,6 +117,9 @@ class ISFDB(Source):
                     
                     if len(matches) >= self._max_results():
                         break
+                    
+            if abort.is_set():
+                return
                 
             # If we haven't reached the maximum number of results, also search by title and author
             if len(matches) < self._max_results():
@@ -225,153 +231,39 @@ class Worker(Thread):
 
     def run(self):
         try:
-            response = self.browser.open_novisit(self.url, timeout=self.timeout).read()
-            raw = response.decode('cp1252', errors='replace')
-            root = fromstring(clean_ascii_chars(raw))
+            self.log.info('Worker parsing ISFDB url: %r' % self.url)
 
-            # TODO alternatively, parse a title cover page
-            self.parse_publication(root)
+            pub = Publication.from_url(self.browser, self.url, self.timeout, self.log)
+
+            if not pub.get("title") or not pub.get("authors"):
+                self.log.error('Insufficient metadata found for %r' % self.url)
+                return
+
+            mi = Metadata(pub["title"], pub["authors"])
+            
+            for id_name in ("isfdb", "isfdb-catalog", "isfdb-title"):
+                if id_name in pub:
+                    mi.set_identifier(id_name, pub[id_name])
+            
+            for attr in ("isbn", "publisher", "pubdate", "cover_url", "comments"):
+                if attr in pub:
+                    setattr(mi, pub[attr])
+
+            if mi.cover_url:
+                self.plugin.cache_identifier_to_cover_url(pub["isfdb"], mi.cover_url)
+            
+            mi.has_cover = bool(mi.cover_url)
+
+            mi.source_relevance = self.relevance
+
+            # TODO: do we actually want / need this?
+            if pub.get("isfdb") and pub.get("isbn")
+                self.plugin.cache_isbn_to_identifier(pub["isbn"], pub["isfdb"])
+
+            self.plugin.clean_downloaded_metadata(mi)
+            self.result_queue.put(mi)
         except Exception as e:
             self.log.exception('Worker failed to fetch and parse url %r with error %r' % (self.url, e))
-
-    # TODO: should all these parsing functions be class methods on a parser object instead?
-    # Maybe we should have helper objects to store all this state?
-    # Objects for Publication, Title, Publications, Titles, Title Covers, which know how to parse themselves and return dicts of info?
-
-    def parse_title_covers(self):
-        pass # TODO: this will be a function parsing a title covers page
-
-    def parse_publication(self, root):
-        self.log.info('Worker parsing ISFDB url: %r' % self.url)
-        
-        isfdb_id = None
-        try:
-            isfdb_id = re.search('(\d+)$', self.url).groups(0)[0]
-        except:
-            self.log.exception('Error parsing ISFDB ID for url: %r' % self.url)
-
-        # TODO TODO TODO middle of refactoring
-        
-        #title = None
-        #authors = []
-        
-        #isbn = None
-        #publisher = None
-        #pubdate = None
-        #catalog_id = None
-        #title_id = None
-        
-        detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
-        
-        if not detail_nodes:
-            detail_nodes = root.xpath('//div[@id="content"]/div/ul/li') # no table (on records with no image)
-
-        detail_dict = dict((n[0].text_content().strip().rstrip(':'), n) for n in detail_nodes)
-
-        # Title and author are compulsory, so if we can't parse these we abort
-
-        title_node = detail_dict.pop("Publication")
-        title = title_node[0].tail.strip()
-        if not title:
-            # assume an extra span with a transliterated title tooltip
-            title = title_node[1].text_content().strip()
-
-        if "Authors" in detail_dict:
-            author_node = detail_dict.pop("Authors")
-        
-
-        # TODO: put these in a dict, process title and authors first, then process the rest, removing intermediate variables
-        for detail_node in detail_nodes:
-            section = detail_node[0].text_content().strip().rstrip(':')
-            #self.log.info(section)
-            try:
-                if section == 'Publication':
-                    title = detail_node[0].tail.strip()
-                    if not title:
-                        # assume an extra span with a transliterated title tooltip
-                        title = detail_node[1].text_content().strip()
-                    #self.log.info(title)
-                elif section == 'Authors' or section == 'Editors':
-                    for a in detail_node.xpath('.//a'):
-                        author = a.text_content().strip()
-                        if section.startswith('Editors'):
-                            authors.append(author + ' (Editor)')
-                        else:
-                            authors.append(author)
-                    #self.log.info(authors)
-                elif section == 'ISBN':
-                    isbn = detail_node[0].tail.strip('[] \n')
-                    #self.log.info(isbn)
-                elif section == 'Publisher':
-                    publisher = detail_node.xpath('a')[0].text_content().strip()
-                    #self.log.info(publisher)
-                elif section == 'Date':                    
-                    date_text = detail_node[0].tail.strip()
-                    # We use this instead of strptime to handle dummy days and months
-                    # E.g. 1965-00-00
-                    year, month, day = [int(p) for p in date_text.split("-")]
-                    month = month or 1
-                    day = day or 1
-                    pubdate = datetime.datetime(year, month, day, tzinfo=utc_tz)
-                    #self.log.info(pubdate)
-                elif section == 'Catalog ID':
-                    # UNTESTED
-                    catalog_id = detail_node[1].text_content().strip()
-                    #self.log.info(catalog_id)
-                elif section == 'Container Title':
-                    title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
-                    title_id = re.search('(\d+)$', title_url).groups(0)[0]
-                    #self.log.info(title_id)
-            except:
-                self.log.exception('Error parsing section %r for url: %r' % (section, self.url) )
-
-        if not title or not authors or not isfdb_id:
-            self.log.error('Insufficient metadata found for %r' % self.url)
-            return
-
-        mi = Metadata(title, authors)
-        mi.set_identifier('isfdb', isfdb_id)
-
-        #if isbn:
-            #mi.isbn = isbn
-        #if publisher:
-            #mi.publisher = publisher
-        #if pubdate:
-            #mi.pubdate = pubdate
-        #if catalog_id:
-            #mi.set_identifier('isfdb-catalog', catalog_id)
-        #if title_id:
-            #mi.set_identifier('isfdb-title', title_id)
-            
-        try:
-            contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
-            
-            if contents_node:
-                contents = tostring(contents_node[0], method='html')            
-                mi.comments = sanitize_comments_html(contents)
-
-        except:
-            self.log.exception('Error parsing comments for url: %r'%self.url)
-
-        try:
-            img_src = root.xpath('//div[@id="content"]//table/tr[1]/td[1]/a/img/@src')
-            if img_src:
-                mi.cover_url = img_src[0]
-                self.plugin.cache_identifier_to_cover_url(isfdb_id, mi.cover_url)
-        except:
-            self.log.exception('Error parsing cover for url: %r'%self.url)
-        
-        mi.has_cover = bool(mi.cover_url)
-
-        mi.source_relevance = self.relevance
-
-        # TODO: do we actually want / need this?
-        if isfdb_id:
-            if isbn:
-                self.plugin.cache_isbn_to_identifier(isbn, isfdb_id)
-
-        self.plugin.clean_downloaded_metadata(mi)
-        self.result_queue.put(mi)
 
 
 if __name__ == '__main__': # tests

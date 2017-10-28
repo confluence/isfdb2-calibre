@@ -32,10 +32,7 @@ class ISFDBObject(object):
         return cls.ADV_SEARCH_URL % urlencode(params)
 
 
-class PublicationsList(ISFDBObject, list):
-    def __init__(self, publication_urls):
-        list.__init__(self, publication_urls)
-
+class PublicationsList(ISFDBObject):
     @classmethod
     def url_from_isbn(cls, isbn):
         params = {
@@ -87,14 +84,11 @@ class PublicationsList(ISFDBObject, list):
             
             publication_urls.append(url)
             
-        return cls(publication_urls)
+        return publication_urls
 
 
 
-class TitleList(ISFDBObject, list):
-    def __init__(self, title_urls):
-        list.__init__(self, title_urls)
-    
+class TitleList(ISFDBObject):
     @classmethod    
     def url_from_title_and_authors(cls, title_tokens, author_tokens):
         # see if this makes an actual difference
@@ -133,7 +127,7 @@ class TitleList(ISFDBObject, list):
             
             title_urls.append(url)
             
-        return cls(title_urls)
+        return title_urls
 
 
 class Publication(ISFDBObject):
@@ -147,8 +141,78 @@ class Publication(ISFDBObject):
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
+        properties = {}
+        properties["isfdb"] = cls.id_from_url(url)
+        
         root = cls.root_from_url(browser, url, timeout, log)
-        pass # return parsed object
+        
+        # Records with a cover image
+        detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
+        # Records without a cover image
+        if not detail_nodes:
+            detail_nodes = root.xpath('//div[@id="content"]/div/ul/li') # no table (on records with no image)
+            
+        for detail_node in detail_nodes:
+            section = detail_node[0].text_content().strip().rstrip(':')
+            #self.log.info(section)
+            try:
+                if section == 'Publication':
+                    properties["title"] = detail_node[0].tail.strip()
+                    if not properties["title"]:
+                        # assume an extra span with a transliterated title tooltip
+                        properties["title"] = detail_node[1].text_content().strip()
+                    #self.log.info(properties["title"])
+                elif section == 'Authors' or section == 'Editors':
+                    properties["authors"] = []
+                    for a in detail_node.xpath('.//a'):
+                        author = a.text_content().strip()
+                        if section.startswith('Editors'):
+                            properties["authors"].append(author + ' (Editor)')
+                        else:
+                            properties["authors"].append(author)
+                    #self.log.info(properties["authors"])
+                elif section == 'ISBN':
+                    properties["isbn"] = detail_node[0].tail.strip('[] \n')
+                    #self.log.info(properties["isbn"])
+                elif section == 'Publisher':
+                    properties["publisher"] = detail_node.xpath('a')[0].text_content().strip()
+                    #self.log.info(properties["publisher"])
+                elif section == 'Date':                    
+                    date_text = detail_node[0].tail.strip()
+                    # We use this instead of strptime to handle dummy days and months
+                    # E.g. 1965-00-00
+                    year, month, day = [int(p) for p in date_text.split("-")]
+                    month = month or 1
+                    day = day or 1
+                    properties["pubdate"] = datetime.datetime(year, month, day, tzinfo=utc_tz)
+                    #self.log.info(properties["pubdate"])
+                elif section == 'Catalog ID':
+                    # UNTESTED AND BROKEN
+                    properties["isfdb-catalog"] = detail_node[1].text_content().strip()
+                    #self.log.info(properties["isfdb-catalog"])
+                elif section == 'Container Title':
+                    title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
+                    properties["isfdb-title"] = re.search('(\d+)$', title_url).groups(0)[0]
+                    #self.log.info(properties["isfdb-title"])
+            except Exception as e:
+                log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )
+                
+        try:
+            contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
+            
+            if contents_node:
+                properties["comments"] = sanitize_comments_html(tostring(contents_node[0], method='html'))           
+        except Exception as e:
+            log.exception('Error parsing comments for url: %r. Error: %r' % (url, e))
+
+        try:
+            img_src = root.xpath('//div[@id="content"]//table/tr[1]/td[1]/a/img/@src')
+            if img_src:
+                properties["cover_url"] = img_src[0]
+        except Exception as e:
+            log.exception('Error parsing cover for url: %r. Error: %r' % (url, e))
+        
+        return properties
 
 
 class TitleCovers(ISFDBObject):
