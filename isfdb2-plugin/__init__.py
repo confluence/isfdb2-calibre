@@ -13,7 +13,6 @@ import time
 import datetime
 import re
 
-from urllib import quote, urlencode
 from Queue import Queue, Empty
 from threading import Thread
 
@@ -29,69 +28,7 @@ from calibre.utils.cleantext import clean_ascii_chars
 from calibre.utils.localization import get_udc
 from calibre.utils.date import utc_tz
 
-class ISFDBObject(object):
-    @classmethod
-    def root_from_url(cls, browser, url):
-        response = browser.open_novisit(url, timeout=timeout)
-        raw = response.read().decode('cp1252', errors='replace')
-        return fromstring(clean_ascii_chars(raw))
-
-    @classmethod
-    def url_from_advanced_search(cls, params):
-        pass # update default parameters; return constructed query
-
-
-class PublicationsList(ISFDBObject):
-    @classmethod
-    def url_from_isbn(cls, isbn):
-        pass # return advanced search query
-    
-    @classmethod    
-    def url_from_title_and_authors(cls, title, authors):
-        pass # return advanced search query
-
-    @classmethod
-    def from_url(cls, url):
-        pass # fetch and return parsed object
-
-
-class TitleList(ISFDBObject):    
-    @classmethod    
-    def url_from_title_and_authors(cls, title, authors):
-        pass # return advanced search query
-
-    @classmethod
-    def from_url(cls, url):
-        pass # fetch and return parsed object
-
-
-class Publication(ISFDBObject):
-    @classmethod
-    def url_from_id(cls, isfdb_id):
-        pass # return url
-        
-    @classmethod
-    def id_from_url(cls, url):
-        pass # return id
-
-    @classmethod
-    def from_url(cls, url):
-        pass # fetch and return parsed object
-
-
-
-class TitleCovers(ISFDBObject):
-    @classmethod
-    def url_from_id(cls, title_id):
-        pass # return url
-        
-    @classmethod
-    def id_from_url(cls, url):
-        pass # return id
-
-    @classmethod
-    def from_url(cls, url):
-        pass # fetch and return parsed object
+from calibre_plugins.isfdb.objects import Publication, PublicationsList, TitleList, TitleCovers
 
 
 class ISFDB(Source):
@@ -119,80 +56,17 @@ class ISFDB(Source):
     cached_cover_url_is_reliable = True
 
     # TODO: delegate to helper objects
-    SEARCH_URL = 'http://www.isfdb.org/cgi-bin/se.cgi?%s'
-    ADV_SEARCH_URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?%s'
-    ID_URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?%s'
+    #SEARCH_URL = 'http://www.isfdb.org/cgi-bin/se.cgi?%s'
+    #ADV_SEARCH_URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?%s'
+    #ID_URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?%s'
 
     def get_book_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
         if isfdb_id:
-            url = self.ID_URL % isfdb_id
+            #url = self.ID_URL % isfdb_id
+            url = Publication.url_from_id(isfdb_id)
             return ('isfdb', isfdb_id, url)
-            
-    # TODO: delegate to helper objects
-    def create_query(self, log, title=None, authors=None, identifiers={}):
-        # ISFDB ID takes precedence over everything
-        isfdb_id = identifiers.get('isfdb', None)
-        if isfdb_id:
-            _, _, url = self.get_book_url(identifiers)
-            return url
 
-        # ISBN takes precedence over title and author
-        # PROBLEM: if there is one matching publication this search redirects, which introduces inconsistency.
-        # TODO: rather use the advanced search for this.
-        isbn = check_isbn(identifiers.get('isbn', None))
-        if isbn:
-            return self.SEARCH_URL % urlencode({"type": "ISBN", "arg": isbn})
-
-        # Otherwise construct a search query from the title and author
-        if title:
-            title = title.replace('?', '')
-            title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
-            # TODO is there a cleaner way to do this?
-            title_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in title_tokens]
-            search_title = '+'.join(title_tokens)
-            
-        if authors:
-            author_tokens = self.get_author_tokens(authors, only_first_author=True)
-            # TODO is there a cleaner way to do this?
-            author_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in author_tokens]
-            search_author = '+'.join(author_tokens)
-        
-        if not search_title and not search_author:
-            return None
-
-        field = 0
-        query = {}
-
-        if search_title and search_author:
-            query.update({"CONJUNCTION_1": "AND"})
-
-        if search_title:
-            field += 1
-            
-            query.update({
-                "USE_%d" % field: "pub_title",
-                "OPERATOR_%d" % field: "contains",
-                "TERM_%d" % field: search_title,
-            })
-
-        if search_author:
-            field += 1
-            
-            query.update({
-                "USE_%d" % field: "author_canonical",
-                "OPERATOR_%d" % field: "contains",
-                "TERM_%d" % field: search_author,
-            })
-
-        query.update({
-            "ORDERBY": "pub_title",
-            "START": "0",
-            "TYPE": "Publication",
-        })
-
-        return self.ADV_SEARCH_URL % urlencode(query)
-            
     def get_cached_cover_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
         if isfdb_id:
@@ -218,7 +92,6 @@ class ISFDB(Source):
         '''
         matches = set()
         relevance = {}
-        br = self.browser
 
         # If we have an ISFDB ID, we use it to construct the publication URL directly
         
@@ -228,35 +101,43 @@ class ISFDB(Source):
             matches.add(url)
             relevance[url] = 0 # most relevant
         else:
-
-            def html_from_url(url):
-                response = br.open_novisit(url, timeout=timeout)
-                raw = response.read().decode('cp1252', errors='replace')
-                return fromstring(clean_ascii_chars(raw))
-                
             isbn = check_isbn(identifiers.get('isbn', None))
 
             # If there's an ISBN, search by ISBN first
             if isbn:
-                query = self.create_query(log, identifiers=identifiers)
-            
-                log.info('Querying: %s' % query)
-                self._parse_search_results(log, html_from_url(query), matches, relevance, 1, timeout)
-
+                query = PublicationsList.url_from_isbn(isbn)
+                urls = PublicationsList.from_url(self.browser, query, timeout, log)
+                
+                for url in urls:
+                    matches.add(url)
+                    relevance[url] = 1
+                    
+                    if len(matches) >= self._max_results():
+                        break
+                
             # If we haven't reached the maximum number of results, also search by title and author
             if len(matches) < self._max_results():
                 title = get_udc().decode(title)
                 authors = authors or []
                 authors = [get_udc().decode(a) for a in authors]
-                query = self.create_query(log, title=title, authors=authors)
-            
-                log.info('Querying: %s' % query)
-                self._parse_search_results(log, html_from_url(query), matches, relevance, 2, timeout)
+                
+                title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
+                author_tokens = self.get_author_tokens(authors, only_first_author=True)
+                
+                query = PublicationsList.url_from_title_and_authors(title_tokens, author_tokens)
+                urls = PublicationsList.from_url(self.browser, query, timeout, log)
+                
+                for url in urls:
+                    matches.add(url)
+                    relevance[url] = 2
+                    
+                    if len(matches) >= self._max_results():
+                        break
 
         if abort.is_set():
             return
 
-        workers = [Worker(m, result_queue, br, log, relevance[m], self) for m in matches]
+        workers = [Worker(m, result_queue, self.browser, log, relevance[m], self) for m in matches]
 
         for w in workers:
             w.start()
@@ -275,28 +156,6 @@ class ISFDB(Source):
                 break
         
         return None
-
-    def _parse_search_results(self, log, root, matches, relevance_dict, relevance, timeout):
-        '''This function doesn't filter the results in any way; we may
-        put some filtering back in later if it's actually necessary.'''
-        
-        results = root.xpath('//div[@id="main"]/table/tr')
-        if not results:
-            log.info('Unable to parse search results.')
-            return
-
-        for result in results:
-            if not result.xpath('td'):
-                continue # header
-                
-            result_url = ''.join(result.xpath('td[1]/a/@href'))
-
-            if result_url:
-                matches.add(result_url)
-                relevance_dict[result_url] = relevance
-                
-                if len(matches) >= self._max_results():
-                    break
 
     def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         cached_url = self.get_cached_cover_url(identifiers)
@@ -339,11 +198,10 @@ class ISFDB(Source):
         if abort.is_set():
             return
         
-        br = self.browser
         log.info('Downloading cover from:', cached_url)
 
         try:
-            cdata = br.open_novisit(cached_url, timeout=timeout).read()
+            cdata = self.browser.open_novisit(cached_url, timeout=timeout).read()
             result_queue.put((self, cdata))
         except:
             log.exception('Failed to download cover from:', cached_url)
