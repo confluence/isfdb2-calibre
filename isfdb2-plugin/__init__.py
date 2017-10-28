@@ -53,6 +53,36 @@ class ISFDB(Source):
     has_html_comments = True
     supports_gzip_transfer_encoding = False
     cached_cover_url_is_reliable = True
+    
+    def __init__(self, *args, **kwargs):
+        super(ISFDB, self).__init__(*args, **kwargs)
+        # We need these for cover lookups if no cover is associated with the publication
+        self._identifier_to_title_cache = {}
+        self._identifier_to_authors_cache = {}
+        
+    def cache_identifier_to_title_and_authors(self, isfdb_id, title, authors):
+        with self.cache_lock:
+            self._identifier_to_title_cache[isfdb_id] = title
+            self._identifier_to_authors_cache[isfdb_id] = authors
+
+    def cached_identifier_to_title_and_authors(self, isfdb_id):
+        with self.cache_lock:
+            return (self._identifier_to_title_cache.get(isfdb_id, None), self._identifier_to_authors_cache.get(isfdb_id, None))
+        
+    def dump_caches(self):
+        dump = super(ISFDB, self).dump_caches()
+        with self.cache_lock:
+            dump.update({
+                'identifier_to_title': self._identifier_to_title_cache.copy(),
+                'identifier_to_authors': self._identifier_to_authors_cache.copy()
+            })
+        return dump
+
+    def load_caches(self, dump):
+        super(ISFDB, self).load_caches(dump)
+        with self.cache_lock:
+            self._identifier_to_title_cache.update(dump['identifier_to_title'])
+            self._identifier_to_authors_cache.update(dump['identifier_to_authors'])
 
     def get_book_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
@@ -151,8 +181,6 @@ class ISFDB(Source):
         return None
 
     def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30, get_best_cover=False):
-        # Problem: the author and title are not available until the metadata has been saved -- it doesn't seem possible to cache them.
-        # We can create our own cache?
         urls = []
         
         cached_url = self.get_cached_cover_url(identifiers)
@@ -164,8 +192,10 @@ class ISFDB(Source):
             title_id = identifiers.get('isfdb-title', None)
             
             if not title_id:
-                title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=False)
-                author_tokens = self.get_author_tokens(authors, only_first_author=True)
+                cached_title, cached_authors = self.cached_identifier_to_title_and_authors(identifiers.get('isfdb'))
+                
+                title_tokens = self.get_title_tokens(title or cached_title, strip_joiners=False, strip_subtitle=False)
+                author_tokens = self.get_author_tokens(authors or cached_authors, only_first_author=True)
                 
                 query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
                 titles = TitleList.from_url(self.browser, query, timeout, log)
@@ -225,6 +255,10 @@ class Worker(Thread):
                 mi.has_cover = True
 
             mi.source_relevance = self.relevance
+            
+            if pub.get("isfdb"):
+                # We need these for looking up more covers later if necessary
+                self.plugin.cache_identifier_to_title_and_authors(pub["isfdb"], pub["title"], pub["authors"])
 
             # TODO: do we actually want / need this?
             if pub.get("isfdb") and pub.get("isbn"):
