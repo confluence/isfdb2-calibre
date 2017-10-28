@@ -39,6 +39,7 @@ class ISFDBObject(object):
 class PublicationsList(ISFDBObject):
     @classmethod
     def url_from_isbn(cls, isbn):
+        # TODO support adding price or date as a supplementary field
         params = {
             "USE_1": "pub_isbn",
             "OPERATOR_1": "exact",
@@ -52,6 +53,7 @@ class PublicationsList(ISFDBObject):
     
     @classmethod    
     def url_from_title_and_author(cls, title_tokens, author_tokens):
+        # TODO support adding price or date as a supplementary field
         title = ' '.join(title_tokens)
         author = ' '.join(author_tokens)
         
