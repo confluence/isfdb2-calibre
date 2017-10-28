@@ -54,15 +54,9 @@ class ISFDB(Source):
     supports_gzip_transfer_encoding = False
     cached_cover_url_is_reliable = True
 
-    # TODO: delegate to helper objects
-    #SEARCH_URL = 'http://www.isfdb.org/cgi-bin/se.cgi?%s'
-    #ADV_SEARCH_URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?%s'
-    #ID_URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?%s'
-
     def get_book_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
         if isfdb_id:
-            #url = self.ID_URL % isfdb_id
             url = Publication.url_from_id(isfdb_id)
             return ('isfdb', isfdb_id, url)
 
@@ -123,9 +117,7 @@ class ISFDB(Source):
                 
             # If we haven't reached the maximum number of results, also search by title and author
             if len(matches) < self.prefs["max_results"]:
-                #title = get_udc().decode(title)
                 authors = authors or []
-                #authors = [get_udc().decode(a) for a in authors]
                 
                 title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
                 author_tokens = self.get_author_tokens(authors, only_first_author=True)
@@ -169,7 +161,6 @@ class ISFDB(Source):
             urls.append(cached_url)
             
         else:
-            # Serial first; then use workers?
             title_id = identifiers.get('isfdb-title', None)
             
             if not title_id:

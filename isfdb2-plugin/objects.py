@@ -52,10 +52,6 @@ class PublicationsList(ISFDBObject):
     
     @classmethod    
     def url_from_title_and_author(cls, title_tokens, author_tokens):
-        # see if this makes an actual difference
-        #title_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in title_tokens]
-        #author_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in author_tokens]
-        
         title = ' '.join(title_tokens)
         author = ' '.join(author_tokens)
         
@@ -176,14 +172,12 @@ class Publication(ISFDBObject):
             
         for detail_node in detail_nodes:
             section = detail_node[0].text_content().strip().rstrip(':')
-            #self.log.info(section)
             try:
                 if section == 'Publication':
                     properties["title"] = detail_node[0].tail.strip()
                     if not properties["title"]:
                         # assume an extra span with a transliterated title tooltip
                         properties["title"] = detail_node[1].text_content().strip()
-                    #self.log.info(properties["title"])
                 elif section == 'Authors' or section == 'Editors':
                     properties["authors"] = []
                     for a in detail_node.xpath('.//a'):
@@ -192,13 +186,10 @@ class Publication(ISFDBObject):
                             properties["authors"].append(author + ' (Editor)')
                         else:
                             properties["authors"].append(author)
-                    #self.log.info(properties["authors"])
                 elif section == 'ISBN':
                     properties["isbn"] = detail_node[0].tail.strip('[] \n')
-                    #self.log.info(properties["isbn"])
                 elif section == 'Publisher':
                     properties["publisher"] = detail_node.xpath('a')[0].text_content().strip()
-                    #self.log.info(properties["publisher"])
                 elif section == 'Date':                    
                     date_text = detail_node[0].tail.strip()
                     # We use this instead of strptime to handle dummy days and months
@@ -207,14 +198,11 @@ class Publication(ISFDBObject):
                     month = month or 1
                     day = day or 1
                     properties["pubdate"] = datetime.datetime(year, month, day)
-                    #self.log.info(properties["pubdate"])
                 elif section == 'Catalog ID':
                     properties["isfdb-catalog"] = detail_node[0].tail.strip()
-                    #self.log.info(properties["isfdb-catalog"])
                 elif section == 'Container Title':
                     title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
                     properties["isfdb-title"] = re.search('(\d+)$', title_url).groups(0)[0]
-                    #self.log.info(properties["isfdb-title"])
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )
                 
