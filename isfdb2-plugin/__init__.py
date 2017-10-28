@@ -44,7 +44,8 @@ class ISFDB(Source):
         ),
         Option(
             'max_covers',
-            'number', 10, 
+            'number',
+            10, 
             _('Maximum number of covers to download:'),
             _('The maximum number of covers to download. This only applies to publication records with no cover. If there is a cover associated with the record, only that cover will be downloaded.')
         ),
@@ -297,6 +298,7 @@ if __name__ == '__main__': # tests
     # by title id
     # by isbn
     # by author / title
+    # multiple authors
     # anthology
     # with cover
     # without cover
