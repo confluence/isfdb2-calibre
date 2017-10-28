@@ -181,7 +181,7 @@ class ISFDB(Source):
         
         return None
 
-    def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30, get_best_cover=False):
+    def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30, get_best_cover=False):        
         urls = []
         
         cached_url = self.get_cached_cover_url(identifiers)
@@ -190,8 +190,8 @@ class ISFDB(Source):
             urls.append(cached_url)
             
         else:
-            title_id = identifiers.get('isfdb-title', None)
-            
+            title_id = identifiers.get("isfdb-title")
+                        
             if not title_id:
                 cached_title, cached_authors = self.cached_identifier_to_title_and_authors(identifiers.get('isfdb'))
                 
@@ -201,7 +201,6 @@ class ISFDB(Source):
                 query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
                 titles = TitleList.from_url(self.browser, query, timeout, log)
                 
-                log.info(titles)
                 title_id = TitleCovers.id_from_url(titles[0])
             
             title_covers_url = TitleCovers.url_from_id(title_id)
@@ -251,15 +250,14 @@ class Worker(Thread):
                 if attr in pub:
                     setattr(mi, attr, pub[attr])
             
+            # TODO: we need a test which has a title but no cover
             if pub.get("cover_url"):
                 self.plugin.cache_identifier_to_cover_url(pub["isfdb"], pub["cover_url"])
                 mi.has_cover = True
+            elif not pub.get("isfdb-title"):
+                self.plugin.cache_identifier_to_title_and_authors(pub["isfdb"], pub["title"], pub["authors"])
 
             mi.source_relevance = self.relevance
-            
-            if pub.get("isfdb"):
-                # We need these for looking up more covers later if necessary
-                self.plugin.cache_identifier_to_title_and_authors(pub["isfdb"], pub["title"], pub["authors"])
 
             # TODO: do we actually want / need this?
             if pub.get("isfdb") and pub.get("isbn"):
