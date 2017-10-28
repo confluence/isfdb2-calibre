@@ -13,7 +13,6 @@ import re
 import datetime
 
 from lxml.html import fromstring, tostring
-#from urllib import quote
 from urllib import urlencode
 
 from calibre.utils.cleantext import clean_ascii_chars
@@ -56,21 +55,38 @@ class PublicationsList(ISFDBObject):
         # see if this makes an actual difference
         #title_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in title_tokens]
         #author_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in author_tokens]
-        title = '+'.join(title_tokens)
-        authors = '+'.join(author_tokens)
         
+        title = ' '.join(title_tokens)
+        author = ' '.join(author_tokens)
+        
+        field = 0
+                
         params = {
-            "USE_1": "pub_title",
-            "OPERATOR_1": "contains",
-            "TERM_1": title,
-            "CONJUNCTION_1": "AND",
-            "USE_2": "author_canonical",
-            "OPERATOR_2": "contains",
-            "TERM_2": authors,
             "ORDERBY": "pub_title",
             "START": "0",
             "TYPE": "Publication",
         }
+        
+        if title:
+            field += 1
+            params.update({
+                "USE_%d" % field: "pub_title",
+                "OPERATOR_%d" % field: "contains",
+                "TERM_%d" % field: title,
+            })
+        
+        if author:
+            field += 1
+            params.update({
+                "USE_%d" % field: "author_canonical",
+                "OPERATOR_%d" % field: "contains",
+                "TERM_%d" % field: author,
+            })
+            
+        if "USE_2" in params:
+            params.update({
+                "CONJUNCTION_1": "AND",
+            })
         
         return cls.url_from_advanced_search(params)
 
@@ -88,6 +104,8 @@ class PublicationsList(ISFDBObject):
             url = ''.join(row.xpath('td[1]/a/@href'))
             
             publication_urls.append(url)
+        
+        log.info("Parsed publications from url %r. Found %d publications." % (url, len(publication_urls)))
             
         return publication_urls
 
@@ -131,7 +149,9 @@ class TitleList(ISFDBObject):
             url = ''.join(row.xpath('td[5]/a/@href'))
             
             title_urls.append(url)
-            
+        
+        log.info("Parsed titles from url %r. Found %d titles." % (url, len(title_urls)))
+        
         return title_urls
 
 
@@ -192,8 +212,7 @@ class Publication(ISFDBObject):
                     properties["pubdate"] = datetime.datetime(year, month, day)
                     #self.log.info(properties["pubdate"])
                 elif section == 'Catalog ID':
-                    # UNTESTED AND BROKEN
-                    properties["isfdb-catalog"] = detail_node[1].text_content().strip()
+                    properties["isfdb-catalog"] = detail_node[0].tail.strip()
                     #self.log.info(properties["isfdb-catalog"])
                 elif section == 'Container Title':
                     title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
@@ -233,3 +252,8 @@ class TitleCovers(ISFDBObject):
     def from_url(cls, browser, url, timeout, log):
         root = cls.root_from_url(browser, url, timeout, log)
         pass # return parsed object
+    
+    
+# For completeness, make it possible to search by title id (although it doesn't seem super useful)
+class Title(ISFDBObject):
+    pass

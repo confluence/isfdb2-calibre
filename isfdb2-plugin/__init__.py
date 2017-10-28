@@ -105,10 +105,12 @@ class ISFDB(Source):
                         break
             
             isbn = check_isbn(identifiers.get('isbn', None))
+            catalog_id = identifiers.get('isfdb-catalog', None)
 
             # If there's an ISBN, search by ISBN first
-            if isbn:
-                query = PublicationsList.url_from_isbn(isbn)
+            # Fall back to non-ISBN catalog ID -- ISFDB uses the same field for both.
+            if isbn or catalog_id:
+                query = PublicationsList.url_from_isbn(isbn or catalog_id)
                 urls = PublicationsList.from_url(self.browser, query, timeout, log)
                 
                 add_matches(urls, 1)
@@ -237,12 +239,11 @@ class Worker(Thread):
             
             for attr in ("isbn", "publisher", "pubdate", "cover_url", "comments"):
                 if attr in pub:
-                    setattr(mi, pub[attr])
-
-            if mi.cover_url:
-                self.plugin.cache_identifier_to_cover_url(pub["isfdb"], mi.cover_url)
+                    setattr(mi, attr, pub[attr])
             
-            mi.has_cover = bool(mi.cover_url)
+            if pub.get("cover_url"):
+                self.plugin.cache_identifier_to_cover_url(pub["isfdb"], pub["cover_url"])
+                mi.has_cover = True
 
             mi.source_relevance = self.relevance
 
@@ -279,6 +280,8 @@ if __name__ == '__main__': # tests
     # Test the plugin.
     # TODO: new test cases
     # by id
+    # by catalog id
+    # by title id
     # by isbn
     # by author / title
     # anthology
