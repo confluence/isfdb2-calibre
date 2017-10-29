@@ -123,7 +123,7 @@ class TitleList(ISFDBObject):
             "TERM_1": title,
             "CONJUNCTION_1": "AND",
             "USE_2": "author_canonical",
-            "OPERATOR_2": "exact",
+            "OPERATOR_2": "contains",
             "TERM_2": author,
             "ORDERBY": "title_title",
             "START": "0",

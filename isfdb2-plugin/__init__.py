@@ -209,8 +209,6 @@ class ISFDB(Source):
         if abort.is_set():
             return
         
-        log.info(urls)
-        
         self.download_multiple_covers(title, authors, urls, get_best_cover, timeout, result_queue, abort, log)
 
 
