@@ -60,6 +60,8 @@ class PublicationsList(ISFDBObject):
         title = ' '.join(title_tokens)
         author = ' '.join(author_tokens)
 
+        title = re.sub(r"(.+),? (The|A)", r"\2 \1", title, flags=re.IGNORECASE)
+
         field = 0
 
         params = {
@@ -117,6 +119,8 @@ class TitleList(ISFDBObject):
     def url_from_title_and_author(cls, title_tokens, author_tokens):
         title = ' '.join(title_tokens)
         author = ' '.join(author_tokens)
+
+        title = re.sub(r"(.+),? (The|A)", r"\2 \1", title, flags=re.IGNORECASE)
 
         params = {
             "USE_1": "title_title",
