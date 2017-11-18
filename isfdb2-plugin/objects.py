@@ -122,9 +122,13 @@ class TitleList(ISFDBObject):
 
         title = re.sub(r"(.+),? (The|A)", r"\2 \1", title, flags=re.IGNORECASE)
 
+        specialcase = re.match("Sprague Camp", author, flags=re.IGNORECASE)
+        if specialcase:
+            author = "Sprague de Camp"
+
         params = {
             "USE_1": "title_title",
-            "OPERATOR_1": "exact",
+            "OPERATOR_1": "contains",
             "TERM_1": title,
             "CONJUNCTION_1": "AND",
             "USE_2": "author_canonical",
@@ -242,13 +246,16 @@ class Publication(ISFDBObject):
         # examples: http://www.isfdb.org/cgi-bin/title.cgi?725161 , http://www.isfdb.org/cgi-bin/title.cgi?1375155 , http://www.isfdb.org/cgi-bin/title.cgi?414961
         if not detail_nodes:
 
-            date_text = root.xpath('//div[@class="ContentBox"][contains(., "Publications")]//tr[@class="table1"]/td[2]')[0].text_content().strip()
-            # We use this instead of strptime to handle dummy days and months
-            # E.g. 1965-00-00
-            year, month, day = [int(p) for p in date_text.split("-")]
-            month = month or 1
-            day = day or 1
-            properties["pubdate"] = datetime.datetime(year, month, day)
+            try:
+                date_text = root.xpath('//div[@class="ContentBox"][contains(., "Publications")]//tr[@class="table1"]/td[2]')[0].text_content().strip()
+                # We use this instead of strptime to handle dummy days and months
+                # E.g. 1965-00-00
+                year, month, day = [int(p) for p in date_text.split("-")]
+                month = month or 1
+                day = day or 1
+                properties["pubdate"] = datetime.datetime(year, month, day)
+            except ValueError as e: # Handle titles without a date; example http://www.isfdb.org/cgi-bin/pl.cgi?282252
+                log.exception('Error parsing date for url: %r. Error: %r' % (url, e))
 
             properties["publisher"] = root.xpath('//div[@class="ContentBox"][contains(., "Publications")]//tr[@class="table1"]/td[4]')[0].text_content().strip()
 
