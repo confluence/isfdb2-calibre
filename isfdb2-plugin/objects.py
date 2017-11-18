@@ -244,38 +244,29 @@ class Publication(ISFDBObject):
             month = month or 1
             day = day or 1
             properties["pubdate"] = datetime.datetime(year, month, day)
-            log.info(properties["pubdate"])
 
             properties["publisher"] = root.xpath('//div[@class="ContentBox"][2]//tr[@class="table1"]/td[4]')[0].text_content().strip()
-            log.info(properties["publisher"])
 
             isbn = root.xpath('//div[@class="ContentBox"][2]//tr[@class="table1"]/td[5]')
             if isbn:
                 properties["isbn"] = isbn[0].text_content().strip().replace("-", "")
-                log.info(properties["isbn"])
 
             properties["isfdb-title"] = root.xpath('//div[@class="ContentBox"][1]/span/text()')[0]
-            log.info(properties["isfdb-title"])
 
             properties["title"] = root.xpath('//div[@class="ContentBox"][1]/b[text()="Title:"]/following-sibling::text()')[0].strip()
-            log.info(properties["title"])
 
             properties["authors"] = []
             # See https://stackoverflow.com/questions/26282186/how-to-find-all-immediately-adjacent-siblings-with-xpath
             for a in root.xpath('//div[@class="ContentBox"][1]/b[contains(text(),"Author")]/following-sibling::*[name()!="a"][1]/preceding-sibling::a'):
                 properties["authors"].append(a.text_content().strip())
-            log.info(properties["authors"])
 
             properties["tags"] = types[root.xpath('//div[@class="ContentBox"][1]/b[text()="Type:"]/following-sibling::text()')[0].strip()]
-            log.info(properties["tags"])
 
             series = root.xpath('//div[@class="ContentBox"][1]/b[text()="Series:"]/following-sibling::text()')
             if series:
                 properties["series"] = series[0].strip()
-                log.info(properties["series"])
 
             properties["languages"] = root.xpath('//div[@class="ContentBox"][1]/b[text()="Language:"]/following-sibling::text()')[0].strip()
-            log.info(properties["languages"])
 
         try:
             img_src = root.xpath('//div[@id="content"]//table//tr[1]/td[1]/a/img/@src')
