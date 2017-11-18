@@ -153,8 +153,8 @@ class ISFDB(Source):
                 title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
                 author_tokens = self.get_author_tokens(authors, only_first_author=True)
                 
-                query = PublicationsList.url_from_title_and_author(title_tokens, author_tokens)
-                urls = PublicationsList.from_url(self.browser, query, timeout, log)
+                query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
+                urls = TitleList.from_url(self.browser, query, timeout, log)
                 
                 add_matches(urls, 2)
 
