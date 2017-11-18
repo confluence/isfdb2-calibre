@@ -182,7 +182,8 @@ class Publication(ISFDBObject):
             "NOVEL": "Novel",
             "OMNIBUS": "Omnibus",
             "POEM": "Poem",
-            "SHORTFICTION": "Short Fiction"
+            "SHORTFICTION": "Short Fiction",
+            "SHORTFICTION\n [juvenile]": "Juvenile, Short Fiction"
         }
 
         root = cls.root_from_url(browser, url, timeout, log)
