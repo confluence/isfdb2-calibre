@@ -237,7 +237,7 @@ class Publication(ISFDBObject):
         # examples: http://www.isfdb.org/cgi-bin/title.cgi?725161 , http://www.isfdb.org/cgi-bin/title.cgi?1375155 , http://www.isfdb.org/cgi-bin/title.cgi?414961
         if not detail_nodes:
 
-            date_text = root.xpath('//div[@class="ContentBox"][2]//tr[@class="table1"]/td[2]')[0].text_content().strip()
+            date_text = root.xpath('//div[@class="ContentBox"][contains(., "Publications")]//tr[@class="table1"]/td[2]')[0].text_content().strip()
             # We use this instead of strptime to handle dummy days and months
             # E.g. 1965-00-00
             year, month, day = [int(p) for p in date_text.split("-")]
@@ -245,9 +245,9 @@ class Publication(ISFDBObject):
             day = day or 1
             properties["pubdate"] = datetime.datetime(year, month, day)
 
-            properties["publisher"] = root.xpath('//div[@class="ContentBox"][2]//tr[@class="table1"]/td[4]')[0].text_content().strip()
+            properties["publisher"] = root.xpath('//div[@class="ContentBox"][contains(., "Publications")]//tr[@class="table1"]/td[4]')[0].text_content().strip()
 
-            isbn = root.xpath('//div[@class="ContentBox"][2]//tr[@class="table1"]/td[5]')
+            isbn = root.xpath('//div[@class="ContentBox"][contains(., "Publications")]//tr[@class="table1"]/td[5]')
             if isbn:
                 properties["isbn"] = isbn[0].text_content().strip().replace("-", "")
 
