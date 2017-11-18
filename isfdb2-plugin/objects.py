@@ -254,8 +254,8 @@ class Publication(ISFDBObject):
                 properties["isbn"] = isbn[0].text_content().strip().replace("-", "")
                 log.info(properties["isbn"])
 
-            properties["identifiers"] = root.xpath('//div[@class="ContentBox"][1]/span/text()')[0]
-            log.info(properties["identifiers"])
+            properties["isfdb-title"] = root.xpath('//div[@class="ContentBox"][1]/span/text()')[0]
+            log.info(properties["isfdb-title"])
 
             properties["title"] = root.xpath('//div[@class="ContentBox"][1]/b[text()="Title:"]/following-sibling::text()')[0].strip()
             log.info(properties["title"])
