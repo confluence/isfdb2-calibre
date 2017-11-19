@@ -60,7 +60,7 @@ class PublicationsList(ISFDBObject):
         title = ' '.join(title_tokens)
         author = ' '.join(author_tokens)
 
-        title = re.sub(r"(.+),? (The|A|An)", r"\2 \1", title, flags=re.IGNORECASE)
+        title = re.sub(r"(.+),? (The|A|An)$", r"\2 \1", title, flags=re.IGNORECASE)
 
         field = 0
 
@@ -120,7 +120,7 @@ class TitleList(ISFDBObject):
         title = ' '.join(title_tokens)
         author = ' '.join(author_tokens)
 
-        title = re.sub(r"(.+),? (The|A|An)", r"\2 \1", title, flags=re.IGNORECASE)
+        title = re.sub(r"(.+),? (The|A|An)$", r"\2 \1", title, flags=re.IGNORECASE)
 
         specialcase = re.match("Sprague Camp", author, flags=re.IGNORECASE)
         if specialcase:
