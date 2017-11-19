@@ -244,7 +244,7 @@ class Publication(ISFDBObject):
 
         # Records which are title matched / short fiction
         # examples: http://www.isfdb.org/cgi-bin/title.cgi?725161 , http://www.isfdb.org/cgi-bin/title.cgi?1375155 , http://www.isfdb.org/cgi-bin/title.cgi?414961
-        if not detail_nodes:
+        if (not detail_nodes) or (not properties.get("title")):
 
             try:
                 date_text = root.xpath('//div[@class="ContentBox"][contains(., "Publications")]//tr[@class="table1"]/td[2]')[0].text_content().strip()
