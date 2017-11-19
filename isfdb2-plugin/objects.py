@@ -184,6 +184,7 @@ class Publication(ISFDBObject):
             "MAGAZINE": "Magazine",
             "NONFICTION": "Non-Fiction",
             "NOVEL": "Novel",
+            "NOVEL\n [non-genre]": "Novel",
             "OMNIBUS": "Omnibus",
             "POEM": "Poem",
             "SHORTFICTION": "Short Fiction",
