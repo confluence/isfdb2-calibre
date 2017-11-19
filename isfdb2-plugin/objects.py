@@ -187,6 +187,7 @@ class Publication(ISFDBObject):
             "NOVEL\n [non-genre]": "Novel",
             "OMNIBUS": "Omnibus",
             "POEM": "Poem",
+            "SERIAL": "Serial",
             "SHORTFICTION": "Short Fiction",
             "SHORTFICTION\n [juvenile]": "Juvenile, Short Fiction"
             "SHORTFICTION\n [non-genre]": "Short Fiction",
