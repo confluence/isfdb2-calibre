@@ -310,4 +310,12 @@ class TitleCovers(ISFDBObject):
 
 # For completeness, make it possible to fetch publications off a title page via title id (although it doesn't seem super useful)
 class Title(ISFDBObject):
+    @classmethod
+    def url_from_id(cls, isfdb_title_id):
+        return cls.TITLE_URL % isfdb_title_id
+
+    @classmethod
+    def id_from_url(cls, url):
+        return re.search('(\d+)$', url).groups(0)[0]
+
     pass
