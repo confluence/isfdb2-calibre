@@ -182,7 +182,7 @@ class Publication(ISFDBObject):
                     if not properties["title"]:
                         # assume an extra span with a transliterated title tooltip
                         properties["title"] = detail_node[1].text_content().strip()
-                elif section == 'Authors' or section == 'Editors':
+                elif section in ('Author', 'Authors', 'Editor', 'Editors'):
                     properties["authors"] = []
                     for a in detail_node.xpath('.//a'):
                         author = a.text_content().strip()
