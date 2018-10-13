@@ -7,11 +7,11 @@ This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguin
     # clone the repository
     git clone https://github.com/confluence/isfdb2-calibre.git
     
-    # navigate to the plugin subdirectory
-    cd isfdb2-calibre/isfdb2-plugin
+    # navigate to the parent directory
+    cd isfdb2-calibre
     
     # add the plugin to calibre
-    calibre-customize -b .
+    calibre-customize -b isfdb2-plugin
 
 ## Features:
 

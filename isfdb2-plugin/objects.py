@@ -168,7 +168,7 @@ class Publication(ISFDBObject):
 
     @classmethod
     def id_from_url(cls, url):
-        return re.search('(\d+)$', url).groups(0)[0]
+        return re.search('(\d+)$', url).group(1)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
@@ -209,7 +209,7 @@ class Publication(ISFDBObject):
                     if not properties["title"]:
                         # assume an extra span with a transliterated title tooltip
                         properties["title"] = detail_node[1].text_content().strip()
-                elif section == 'Authors' or section == 'Editors':
+                elif section in ('Author', 'Authors', 'Editor', 'Editors'):
                     properties["authors"] = []
                     for a in detail_node.xpath('.//a'):
                         author = a.text_content().strip()
@@ -233,7 +233,7 @@ class Publication(ISFDBObject):
                     properties["isfdb-catalog"] = detail_node[0].tail.strip()
                 elif section == 'Container Title':
                     title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
-                    properties["isfdb-title"] = re.search('(\d+)$', title_url).groups(0)[0]
+                    properties["isfdb-title"] = Title.id_from_url(title_url)
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e))
 
@@ -300,7 +300,7 @@ class TitleCovers(ISFDBObject):
 
     @classmethod
     def id_from_url(cls, url):
-        return re.search('(\d+)$', url).groups(0)[0]
+        return re.search('(\d+)$', url).group(1)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
@@ -316,4 +316,4 @@ class Title(ISFDBObject):
 
     @classmethod
     def id_from_url(cls, url):
-        return re.search('(\d+)$', url).groups(0)[0]
+        return re.search('(\d+)$', url).group(1)

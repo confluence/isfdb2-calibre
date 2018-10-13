@@ -251,11 +251,11 @@ class Worker(Thread):
 
             mi = Metadata(pub["title"], pub["authors"])
             
-            for id_name in ("isfdb", "isfdb-catalog", "isfdb-title"):
+            for id_name in ("isbn", "isfdb", "isfdb-catalog", "isfdb-title"):
                 if id_name in pub:
                     mi.set_identifier(id_name, pub[id_name])
             
-            for attr in ("isbn", "publisher", "pubdate", "comments"):
+            for attr in ("publisher", "pubdate", "comments"):
                 if attr in pub:
                     setattr(mi, attr, pub[attr])
             
