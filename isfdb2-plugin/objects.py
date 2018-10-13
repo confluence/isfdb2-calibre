@@ -23,7 +23,7 @@ class ISFDBObject(object):
     ID_URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?%s'
     TITLE_URL = 'http://www.isfdb.org/cgi-bin/title.cgi?%s'
     TITLE_COVERS_URL = 'http://www.isfdb.org/cgi-bin/titlecovers.cgi?%s'
-    
+
     @classmethod
     def root_from_url(cls, browser, url, timeout, log):
         log.info('Fetching: %s' % url)
@@ -49,24 +49,24 @@ class PublicationsList(ISFDBObject):
             "START": "0",
             "TYPE": "Publication",
         }
-        
+
         return cls.url_from_advanced_search(params)
-    
-    @classmethod    
+
+    @classmethod
     def url_from_title_and_author(cls, title_tokens, author_tokens):
         # TODO support adding price or date as a supplementary field
         # but where will it go in the interface?
         title = ' '.join(title_tokens)
         author = ' '.join(author_tokens)
-        
+
         field = 0
-                
+
         params = {
             "ORDERBY": "pub_title",
             "START": "0",
             "TYPE": "Publication",
         }
-        
+
         if title:
             field += 1
             params.update({
@@ -74,7 +74,7 @@ class PublicationsList(ISFDBObject):
                 "OPERATOR_%d" % field: "contains",
                 "TERM_%d" % field: title,
             })
-        
+
         if author:
             field += 1
             params.update({
@@ -82,41 +82,41 @@ class PublicationsList(ISFDBObject):
                 "OPERATOR_%d" % field: "contains",
                 "TERM_%d" % field: author,
             })
-            
+
         if "USE_2" in params:
             params.update({
                 "CONJUNCTION_1": "AND",
             })
-        
+
         return cls.url_from_advanced_search(params)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
         publication_urls = []
-        
+
         root = cls.root_from_url(browser, url, timeout, log)
         rows = root.xpath('//div[@id="main"]/table/tr')
-        
+
         for row in rows:
             if not row.xpath('td'):
                 continue # header
-                
+
             url = ''.join(row.xpath('td[1]/a/@href'))
-            
+
             publication_urls.append(url)
-        
+
         log.info("Parsed publications from url %r. Found %d publications." % (url, len(publication_urls)))
-            
+
         return publication_urls
 
 
 
 class TitleList(ISFDBObject):
-    @classmethod    
+    @classmethod
     def url_from_title_and_author(cls, title_tokens, author_tokens):
         title = ' '.join(title_tokens)
         author = ' '.join(author_tokens)
-        
+
         params = {
             "USE_1": "title_title",
             "OPERATOR_1": "exact",
@@ -129,26 +129,26 @@ class TitleList(ISFDBObject):
             "START": "0",
             "TYPE": "Title",
         }
-        
+
         return cls.url_from_advanced_search(params)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
         title_urls = []
-        
+
         root = cls.root_from_url(browser, url, timeout, log)
         rows = root.xpath('//div[@id="main"]/form/table/tr')
 
         for row in rows:
             if not row.xpath('td'):
                 continue # header
-                
+
             url = ''.join(row.xpath('td[5]/a/@href'))
-            
+
             title_urls.append(url)
-        
+
         log.info("Parsed titles from url %r. Found %d titles." % (url, len(title_urls)))
-        
+
         return title_urls
 
 
@@ -156,7 +156,7 @@ class Publication(ISFDBObject):
     @classmethod
     def url_from_id(cls, isfdb_id):
         return cls.ID_URL % isfdb_id
-        
+
     @classmethod
     def id_from_url(cls, url):
         return re.search('(\d+)$', url).group(1)
@@ -165,15 +165,15 @@ class Publication(ISFDBObject):
     def from_url(cls, browser, url, timeout, log):
         properties = {}
         properties["isfdb"] = cls.id_from_url(url)
-        
+
         root = cls.root_from_url(browser, url, timeout, log)
-        
+
         # Records with a cover image
         detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
         # Records without a cover image
         if not detail_nodes:
             detail_nodes = root.xpath('//div[@id="content"]/div/ul/li') # no table (on records with no image)
-            
+
         for detail_node in detail_nodes:
             section = detail_node[0].text_content().strip().rstrip(':')
             try:
@@ -194,7 +194,7 @@ class Publication(ISFDBObject):
                     properties["isbn"] = detail_node[0].tail.strip('[] \n')
                 elif section == 'Publisher':
                     properties["publisher"] = detail_node.xpath('a')[0].text_content().strip()
-                elif section == 'Date':                    
+                elif section == 'Date':
                     date_text = detail_node[0].tail.strip()
                     # We use this instead of strptime to handle dummy days and months
                     # E.g. 1965-00-00
@@ -209,12 +209,12 @@ class Publication(ISFDBObject):
                     properties["isfdb-title"] = Title.id_from_url(title_url)
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )
-                
+
         try:
             contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
-            
+
             if contents_node:
-                properties["comments"] = sanitize_comments_html(tostring(contents_node[0], method='html'))           
+                properties["comments"] = sanitize_comments_html(tostring(contents_node[0], method='html'))
         except Exception as e:
             log.exception('Error parsing comments for url: %r. Error: %r' % (url, e))
 
@@ -224,7 +224,7 @@ class Publication(ISFDBObject):
                 properties["cover_url"] = img_src[0]
         except Exception as e:
             log.exception('Error parsing cover for url: %r. Error: %r' % (url, e))
-        
+
         return properties
 
 
@@ -232,17 +232,17 @@ class TitleCovers(ISFDBObject):
     @classmethod
     def url_from_id(cls, title_id):
         return cls.TITLE_COVERS_URL % title_id
-        
+
     @classmethod
     def id_from_url(cls, url):
         return re.search('(\d+)$', url).group(1)
 
     @classmethod
-    def from_url(cls, browser, url, timeout, log):        
+    def from_url(cls, browser, url, timeout, log):
         root = cls.root_from_url(browser, url, timeout, log)
         return root.xpath('//div[@id="main"]/a/img/@src')
-        
-    
+
+
 # For completeness, make it possible to fetch publications off a title page via title id (although it doesn't seem super useful)
 class Title(ISFDBObject):
     @classmethod
