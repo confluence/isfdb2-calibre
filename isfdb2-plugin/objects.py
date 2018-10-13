@@ -317,5 +317,3 @@ class Title(ISFDBObject):
     @classmethod
     def id_from_url(cls, url):
         return re.search('(\d+)$', url).groups(0)[0]
-
-    pass
