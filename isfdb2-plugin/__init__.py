@@ -45,7 +45,7 @@ class ISFDB(Source):
         Option(
             'max_covers',
             'number',
-            10, 
+            10,
             _('Maximum number of covers to download:'),
             _('The maximum number of covers to download. This only applies to publication records with no cover. If there is a cover associated with the record, only that cover will be downloaded.')
         ),
@@ -54,13 +54,13 @@ class ISFDB(Source):
     has_html_comments = True
     supports_gzip_transfer_encoding = False
     cached_cover_url_is_reliable = True
-    
+
     def __init__(self, *args, **kwargs):
         super(ISFDB, self).__init__(*args, **kwargs)
         # We need these for cover lookups if no cover is associated with the publication
         self._identifier_to_title_cache = {}
         self._identifier_to_authors_cache = {}
-        
+
     def cache_identifier_to_title_and_authors(self, isfdb_id, title, authors):
         with self.cache_lock:
             self._identifier_to_title_cache[isfdb_id] = title
@@ -69,7 +69,7 @@ class ISFDB(Source):
     def cached_identifier_to_title_and_authors(self, isfdb_id):
         with self.cache_lock:
             return (self._identifier_to_title_cache.get(isfdb_id, None), self._identifier_to_authors_cache.get(isfdb_id, None))
-        
+
     def dump_caches(self):
         dump = super(ISFDB, self).dump_caches()
         with self.cache_lock:
@@ -107,7 +107,7 @@ class ISFDB(Source):
         isbn = identifiers.get('isbn', None)
         if isbn:
             return self.cached_identifier_to_cover_url(self.cached_isbn_to_identifier(isbn))
-                
+
         return None
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
@@ -120,7 +120,7 @@ class ISFDB(Source):
         relevance = {}
 
         # If we have an ISFDB ID, we use it to construct the publication URL directly
-        
+
         isfdb_id = identifiers.get('isfdb', None)
         isfdb_title_id = identifiers.get('isfdb-title', None)
         if isfdb_id:
@@ -134,15 +134,15 @@ class ISFDB(Source):
         else:
             if abort.is_set():
                 return
-            
+
             def add_matches(urls, relevance_score):
                 for url in urls:
                     matches.add(url)
                     relevance[url] = relevance_score
-                    
+
                     if len(matches) >= self.prefs["max_results"]:
                         break
-            
+
             isbn = check_isbn(identifiers.get('isbn', None))
             catalog_id = identifiers.get('isfdb-catalog', None)
 
@@ -151,22 +151,22 @@ class ISFDB(Source):
             if isbn or catalog_id:
                 query = PublicationsList.url_from_isbn(isbn or catalog_id)
                 urls = PublicationsList.from_url(self.browser, query, timeout, log)
-                
+
                 add_matches(urls, 1)
-                    
+
             if abort.is_set():
                 return
-                
+
             # If we haven't reached the maximum number of results, also search by title and author
             if len(matches) < self.prefs["max_results"]:
                 authors = authors or []
-                
+
                 title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
                 author_tokens = self.get_author_tokens(authors, only_first_author=True)
-                
+
                 query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
                 urls = TitleList.from_url(self.browser, query, timeout, log)
-                
+
                 add_matches(urls, 2)
 
         if abort.is_set():
@@ -189,37 +189,37 @@ class ISFDB(Source):
                     a_worker_is_alive = True
             if not a_worker_is_alive:
                 break
-        
+
         return None
 
-    def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30, get_best_cover=False):        
+    def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30, get_best_cover=False):
         urls = []
-        
+
         cached_url = self.get_cached_cover_url(identifiers)
-        
+
         if cached_url:
             urls.append(cached_url)
-            
+
         else:
             title_id = identifiers.get("isfdb-title")
-                        
+
             if not title_id:
                 cached_title, cached_authors = self.cached_identifier_to_title_and_authors(identifiers.get('isfdb'))
-                
+
                 title_tokens = self.get_title_tokens(title or cached_title, strip_joiners=False, strip_subtitle=False)
                 author_tokens = self.get_author_tokens(authors or cached_authors, only_first_author=True)
-                
+
                 query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
                 titles = TitleList.from_url(self.browser, query, timeout, log)
-                
+
                 title_id = TitleCovers.id_from_url(titles[0])
-            
+
             title_covers_url = TitleCovers.url_from_id(title_id)
             urls.extend(TitleCovers.from_url(self.browser, title_covers_url, timeout, log))
 
         if abort.is_set():
             return
-        
+
         self.download_multiple_covers(title, authors, urls, get_best_cover, timeout, result_queue, abort, log)
 
 
@@ -250,15 +250,15 @@ class Worker(Thread):
                 return
 
             mi = Metadata(pub["title"], pub["authors"])
-            
+
             for id_name in ("isbn", "isfdb", "isfdb-catalog", "isfdb-title"):
                 if id_name in pub:
                     mi.set_identifier(id_name, pub[id_name])
-            
+
             for attr in ("publisher", "pubdate", "comments"):
                 if attr in pub:
                     setattr(mi, attr, pub[attr])
-            
+
             # TODO: we need a test which has a title but no cover
             if pub.get("cover_url"):
                 self.plugin.cache_identifier_to_cover_url(pub["isfdb"], pub["cover_url"])
