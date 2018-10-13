@@ -367,4 +367,7 @@ class Title(Record):
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )
 
+        publication_links = root.xpath('//a[contains(@href, "/pl.cgi?")]/@href')
+        properties["publications"] = [Publication.id_from_url(l) for l in publication_links]
+        
         return properties

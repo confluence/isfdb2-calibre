@@ -265,18 +265,28 @@ class Worker(Thread):
                     title, author, ttype = pub["title"], pub["author_string"], pub["type"]
                     query = TitleList.url_from_exact_title_author_and_type(title, author, ttype)
                     titles = TitleList.from_url(self.browser, query, self.timeout, self.log)
-
-                    title_id = Title.id_from_url(titles[0])
-                
-                title_url = Title.url_from_id(title_id)
-                
-                self.log.info("Fetching additional title information from %s" % title_url)
-                tit = Title.from_url(self.browser, title_url, self.timeout, self.log)
-                
-                # Merge title and publication info, with publication info taking precedence
-                tit.update(pub)
-                pub = tit
-                
+                    
+                    title_ids = [Title.id_from_url(t) for t in titles]
+                else:
+                    title_ids = [title_id]
+                    
+                for title_id in title_ids:
+                    title_url = Title.url_from_id(title_id)
+                    
+                    self.log.info("Fetching additional title information from %s" % title_url)
+                    tit = Title.from_url(self.browser, title_url, self.timeout, self.log)
+                    
+                    if pub["isfdb"] in tit["publications"]:
+                        self.log.info("This is the correct title!")
+                        # Merge title and publication info, with publication info taking precedence
+                        tit.update(pub)
+                        pub = tit
+                        break
+                    
+                    self.log.info("This is not the correct title.")
+                else:
+                    self.log.info("We could not find a title record for this publication.")
+                    
             elif Title.is_type_of(self.url):
                 self.log.info("This url is a Title.")
                 pub = Title.from_url(self.browser, self.url, self.timeout, self.log)
