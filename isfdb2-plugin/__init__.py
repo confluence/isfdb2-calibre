@@ -20,7 +20,7 @@ from calibre.ebooks.metadata.book.base import Metadata
 
 #from calibre.utils.localization import get_udc
 
-from calibre_plugins.isfdb.objects import Publication, PublicationsList, TitleList, TitleCovers
+from calibre_plugins.isfdb.objects import Publication, Title, PublicationsList, TitleList, TitleCovers
 
 
 class ISFDB(Source):
@@ -57,33 +57,28 @@ class ISFDB(Source):
 
     def __init__(self, *args, **kwargs):
         super(ISFDB, self).__init__(*args, **kwargs)
-        # We need these for cover lookups if no cover is associated with the publication
-        self._identifier_to_title_cache = {}
-        self._identifier_to_authors_cache = {}
-
-    def cache_identifier_to_title_and_authors(self, isfdb_id, title, authors):
+        self._publication_id_to_title_id_cache = {}
+        
+    def cache_publication_id_to_title_id(self, isfdb_id, title_id):
         with self.cache_lock:
-            self._identifier_to_title_cache[isfdb_id] = title
-            self._identifier_to_authors_cache[isfdb_id] = authors
-
-    def cached_identifier_to_title_and_authors(self, isfdb_id):
+            self._publication_id_to_title_id_cache[isfdb_id] = title_id
+            
+    def cached_publication_id_to_title_id(self, isfdb_id):
         with self.cache_lock:
-            return (self._identifier_to_title_cache.get(isfdb_id, None), self._identifier_to_authors_cache.get(isfdb_id, None))
+            return self._publication_id_to_title_id_cache.get(isfdb_id, None)
 
     def dump_caches(self):
         dump = super(ISFDB, self).dump_caches()
         with self.cache_lock:
             dump.update({
-                'identifier_to_title': self._identifier_to_title_cache.copy(),
-                'identifier_to_authors': self._identifier_to_authors_cache.copy()
+                'publication_id_to_title_id': self._publication_id_to_title_id_cache.copy(),
             })
         return dump
 
     def load_caches(self, dump):
         super(ISFDB, self).load_caches(dump)
         with self.cache_lock:
-            self._identifier_to_title_cache.update(dump['identifier_to_title'])
-            self._identifier_to_authors_cache.update(dump['identifier_to_authors'])
+            self._publication_id_to_title_id_cache.update(dump['publication_id_to_title_id'])
 
     def get_book_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
@@ -116,10 +111,14 @@ class ISFDB(Source):
         # If we have an ISFDB ID, we use it to construct the publication URL directly
 
         isfdb_id = identifiers.get('isfdb', None)
+        title_id = identifiers.get('isfdb-title', None)
+        
         if isfdb_id:
             _, _, url = self.get_book_url(identifiers)
             matches.add(url)
             relevance[url] = 0 # most relevant
+            
+            self.cache_publication_id_to_title_id(isfdb_id, title_id)
         else:
             if abort.is_set():
                 return
@@ -191,18 +190,6 @@ class ISFDB(Source):
 
         else:
             title_id = identifiers.get("isfdb-title")
-
-            if not title_id:
-                cached_title, cached_authors = self.cached_identifier_to_title_and_authors(identifiers.get('isfdb'))
-
-                title_tokens = self.get_title_tokens(title or cached_title, strip_joiners=False, strip_subtitle=False)
-                author_tokens = self.get_author_tokens(authors or cached_authors, only_first_author=True)
-
-                query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
-                titles = TitleList.from_url(self.browser, query, timeout, log)
-
-                title_id = TitleCovers.id_from_url(titles[0])
-
             title_covers_url = TitleCovers.url_from_id(title_id)
             urls.extend(TitleCovers.from_url(self.browser, title_covers_url, timeout, log))
 
@@ -231,9 +218,44 @@ class Worker(Thread):
     def run(self):
         try:
             self.log.info('Worker parsing ISFDB url: %r' % self.url)
+            
+            pub = {}
+            
+            if Publication.is_type_of(self.url):
+                self.log.info("This url is a Publication.")
+                pub = Publication.from_url(self.browser, self.url, self.timeout, self.log)
+                
+                title_id = self.plugin.cached_publication_id_to_title_id(pub["isfdb"])
+                
+                if not title_id and "isfdb-title" in pub:
+                    title_id = pub["isfdb-title"]
+                
+                if not title_id:
+                    self.log.info("Could not find title ID in original metadata or on publication page. Searching for title.")
+                    
+                    title, author, ttype = pub["title"], pub["author_string"], pub["type"]
+                    query = TitleList.url_from_exact_title_author_and_type(title, author, ttype)
+                    titles = TitleList.from_url(self.browser, query, self.timeout, self.log)
 
-            pub = Publication.from_url(self.browser, self.url, self.timeout, self.log)
-
+                    title_id = Title.id_from_url(titles[0])
+                
+                title_url = Title.url_from_id(title_id)
+                
+                self.log.info("Fetching additional title information from %s" % title_url)
+                tit = Title.from_url(self.browser, title_url, self.timeout, self.log)
+                
+                # Merge title and publication info, with publication info taking precedence
+                tit.update(pub)
+                pub = tit
+                
+            elif Title.is_type_of(self.url):
+                self.log.info("This url is a Title.")
+                pub = Title.from_url(self.url)
+                
+            else:
+                self.log.error("Out of cheese error! Unrecognised url!")
+                return
+                
             if not pub.get("title") or not pub.get("authors"):
                 self.log.error('Insufficient metadata found for %r' % self.url)
                 return
@@ -244,7 +266,7 @@ class Worker(Thread):
                 if id_name in pub:
                     mi.set_identifier(id_name, pub[id_name])
 
-            for attr in ("publisher", "pubdate", "comments"):
+            for attr in ("publisher", "pubdate", "comments", "series", "series_index", "tags"):
                 if attr in pub:
                     setattr(mi, attr, pub[attr])
 
@@ -252,8 +274,6 @@ class Worker(Thread):
             if pub.get("cover_url"):
                 self.plugin.cache_identifier_to_cover_url(pub["isfdb"], pub["cover_url"])
                 mi.has_cover = True
-            elif not pub.get("isfdb-title"):
-                self.plugin.cache_identifier_to_title_and_authors(pub["isfdb"], pub["title"], pub["authors"])
 
             mi.source_relevance = self.relevance
 

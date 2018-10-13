@@ -19,11 +19,6 @@ from calibre.utils.cleantext import clean_ascii_chars
 from calibre.library.comments import sanitize_comments_html
 
 class ISFDBObject(object):
-    ADV_SEARCH_URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?%s'
-    ID_URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?%s'
-    TITLE_URL = 'http://www.isfdb.org/cgi-bin/title.cgi?%s'
-    TITLE_COVERS_URL = 'http://www.isfdb.org/cgi-bin/titlecovers.cgi?%s'
-
     @classmethod
     def root_from_url(cls, browser, url, timeout, log):
         log.info('Fetching: %s' % url)
@@ -31,12 +26,23 @@ class ISFDBObject(object):
         raw = response.read().decode('cp1252', errors='replace')
         return fromstring(clean_ascii_chars(raw))
 
+
+class SearchResults(ISFDBObject):
+    URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?';
+    TYPE = None;
+
     @classmethod
-    def url_from_advanced_search(cls, params):
-        return cls.ADV_SEARCH_URL % urlencode(params)
+    def url_from_params(cls, params):
+        return cls.URL + urlencode(params)
+    
+    @classmethod
+    def is_type_of(cls, url):
+        return url.startswith(cls.URL) and ("TYPE=%s" % cls.TYPE) in url
+    
 
-
-class PublicationsList(ISFDBObject):
+class PublicationsList(SearchResults):
+    TYPE = "Publication"
+    
     @classmethod
     def url_from_isbn(cls, isbn):
         # TODO support adding price or date as a supplementary field
@@ -47,10 +53,10 @@ class PublicationsList(ISFDBObject):
             "TERM_1": isbn,
             "ORDERBY": "pub_title",
             "START": "0",
-            "TYPE": "Publication",
+            "TYPE": cls.TYPE,
         }
 
-        return cls.url_from_advanced_search(params)
+        return cls.url_from_params(params)
 
     @classmethod
     def url_from_title_and_author(cls, title_tokens, author_tokens):
@@ -64,7 +70,7 @@ class PublicationsList(ISFDBObject):
         params = {
             "ORDERBY": "pub_title",
             "START": "0",
-            "TYPE": "Publication",
+            "TYPE": cls.TYPE,
         }
 
         if title:
@@ -88,7 +94,7 @@ class PublicationsList(ISFDBObject):
                 "CONJUNCTION_1": "AND",
             })
 
-        return cls.url_from_advanced_search(params)
+        return cls.url_from_params(params)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
@@ -111,7 +117,33 @@ class PublicationsList(ISFDBObject):
 
 
 
-class TitleList(ISFDBObject):
+class TitleList(SearchResults):
+    # TODO: separate permissive title/author search from specific lookup of a publication
+    # TODO: isbn not possible; add type to exact search?
+    
+    TYPE = "Title"
+    
+    @classmethod
+    def url_from_exact_title_author_and_type(cls, title, author, ttype):
+        params = {
+            "USE_1": "title_title",
+            "OPERATOR_1": "exact",
+            "TERM_1": title,
+            "CONJUNCTION_1": "AND",
+            "USE_2": "author_canonical",
+            "OPERATOR_2": "exact",
+            "TERM_2": author,
+            "CONJUNCTION_2": "AND",
+            "USE_3": "title_ttype",
+            "OPERATOR_3": "exact",
+            "TERM_3": ttype,
+            "ORDERBY": "title_title",
+            "START": "0",
+            "TYPE": cls.TYPE,
+        }
+
+        return cls.url_from_params(params)
+    
     @classmethod
     def url_from_title_and_author(cls, title_tokens, author_tokens):
         title = ' '.join(title_tokens)
@@ -119,7 +151,7 @@ class TitleList(ISFDBObject):
 
         params = {
             "USE_1": "title_title",
-            "OPERATOR_1": "exact",
+            "OPERATOR_1": "contains",
             "TERM_1": title,
             "CONJUNCTION_1": "AND",
             "USE_2": "author_canonical",
@@ -127,10 +159,10 @@ class TitleList(ISFDBObject):
             "TERM_2": author,
             "ORDERBY": "title_title",
             "START": "0",
-            "TYPE": "Title",
+            "TYPE": cls.TYPE,
         }
 
-        return cls.url_from_advanced_search(params)
+        return cls.url_from_params(params)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
@@ -152,10 +184,20 @@ class TitleList(ISFDBObject):
         return title_urls
 
 
-class Publication(ISFDBObject):
+class Record(ISFDBObject):
+    URL = None
+    
+    @classmethod
+    def is_type_of(cls, url):
+        return url.startswith(cls.URL)
+
+
+class Publication(Record):
+    URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?'
+
     @classmethod
     def url_from_id(cls, isfdb_id):
-        return cls.ID_URL % isfdb_id
+        return cls.URL + isfdb_id
 
     @classmethod
     def id_from_url(cls, url):
@@ -186,10 +228,18 @@ class Publication(ISFDBObject):
                     properties["authors"] = []
                     for a in detail_node.xpath('.//a'):
                         author = a.text_content().strip()
-                        if section.startswith('Editors'):
+                        
+                        # For looking up the corresponding title.
+                        # We can only use the first author because the search is broken.
+                        if "author_string" not in properties:
+                            properties["author_string"] = author
+                            
+                        if section.startswith('Editor'):
                             properties["authors"].append(author + ' (Editor)')
                         else:
                             properties["authors"].append(author)
+                elif section == 'Type':
+                    properties["type"] = detail_node[0].tail.strip()
                 elif section == 'ISBN':
                     properties["isbn"] = detail_node[0].tail.strip('[] \n')
                 elif section == 'Publisher':
@@ -228,10 +278,12 @@ class Publication(ISFDBObject):
         return properties
 
 
-class TitleCovers(ISFDBObject):
+class TitleCovers(Record):
+    URL = 'http://www.isfdb.org/cgi-bin/titlecovers.cgi?'
+    
     @classmethod
     def url_from_id(cls, title_id):
-        return cls.TITLE_COVERS_URL % title_id
+        return cls.URL + title_id
 
     @classmethod
     def id_from_url(cls, url):
@@ -243,12 +295,77 @@ class TitleCovers(ISFDBObject):
         return root.xpath('//div[@id="main"]/a/img/@src')
 
 
-# For completeness, make it possible to fetch publications off a title page via title id (although it doesn't seem super useful)
-class Title(ISFDBObject):
+class Title(Record):
+    URL = 'http://www.isfdb.org/cgi-bin/title.cgi?'
+    
     @classmethod
     def url_from_id(cls, isfdb_title_id):
-        return cls.TITLE_URL % isfdb_title_id
+        return cls.URL + isfdb_title_id
 
     @classmethod
     def id_from_url(cls, url):
         return re.search('(\d+)$', url).group(1)
+
+    @classmethod
+    def from_url(cls, browser, url, timeout, log):
+        properties = {}
+        properties["isfdb-title"] = cls.id_from_url(url)
+
+        root = cls.root_from_url(browser, url, timeout, log)
+        
+        detail_div = root.xpath('//div[@class="ContentBox"]')[0]
+        
+        detail_nodes = []
+        detail_node = []
+        for e in detail_div:
+            if e.tag == 'br':
+                detail_nodes.append(detail_node)
+                detail_node = []
+            else:
+                detail_node.append(e)
+        detail_nodes.append(detail_node)
+                
+        for detail_node in detail_nodes:
+            section = detail_node[0].text_content().strip().rstrip(':')
+            try:
+                if section == 'Title':
+                    properties["title"] = detail_node[0].tail.strip()
+                    if not properties["title"]:
+                        # assume an extra span with a transliterated title tooltip
+                        properties["title"] = detail_node[1].text_content().strip()
+                elif section in ('Author', 'Authors', 'Editor', 'Editors'):
+                    properties["authors"] = []
+                    author_links = [e for e in detail_node if e.tag == 'a']
+                    for a in author_links:
+                        author = a.text_content().strip()
+                        
+                        if section.startswith('Editor'):
+                            properties["authors"].append(author + ' (Editor)')
+                        else:
+                            properties["authors"].append(author)
+                elif section == 'Type':
+                    properties["type"] = detail_node[0].tail.strip()
+                elif section == 'Date':
+                    date_text = detail_node[0].tail.strip()
+                    # We use this instead of strptime to handle dummy days and months
+                    # E.g. 1965-00-00
+                    year, month, day = [int(p) for p in date_text.split("-")]
+                    month = month or 1
+                    day = day or 1
+                    properties["pubdate"] = datetime.datetime(year, month, day)
+                elif section == 'Series':
+                    properties["series"] = detail_node[1].text_content().strip()
+                elif section == 'Series Number':
+                    properties["series_index"] = float(detail_node[0].tail.strip())
+                elif section == 'Current Tags':
+                    properties["tags"] = []
+                    tag_links = [e for e in detail_node if e.tag == 'a']
+                    for a in tag_links:
+                        tag = a.text_content().strip()
+                        if tag != "Add Tags":
+                            properties["tags"].append(tag)
+
+            except Exception as e:
+                log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )
+
+        return properties
