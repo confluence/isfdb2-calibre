@@ -1,13 +1,5 @@
 #!/usr/bin/env python
-# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import (unicode_literals, division, absolute_import,
-                        print_function)
-
-__license__   = 'GPL v3'
-__copyright__ = '''(c) 2017 Adrianna Pińska <adrianna.pinska@gmail.com>,
-Xtina Schelin <xtina.schelin@gmail.com>,
-Grant Drake <grant.drake@gmail.com>'''
-__docformat__ = 'restructuredtext en'
+from __future__ import (unicode_literals, division, absolute_import, print_function)
 
 import time
 
@@ -17,8 +9,6 @@ from threading import Thread
 from calibre.ebooks.metadata import check_isbn
 from calibre.ebooks.metadata.sources.base import Source, Option
 from calibre.ebooks.metadata.book.base import Metadata
-
-#from calibre.utils.localization import get_udc
 
 from calibre_plugins.isfdb.objects import Publication, Title, PublicationsList, TitleList, TitleCovers
 

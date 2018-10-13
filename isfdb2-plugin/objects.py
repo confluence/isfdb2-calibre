@@ -1,13 +1,5 @@
 #!/usr/bin/env python
-# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-from __future__ import (unicode_literals, division, absolute_import,
-                        print_function)
-
-__license__   = 'GPL v3'
-__copyright__ = '''(c) 2017 Adrianna Pińska <adrianna.pinska@gmail.com>,
-Xtina Schelin <xtina.schelin@gmail.com>,
-Grant Drake <grant.drake@gmail.com>'''
-__docformat__ = 'restructuredtext en'
+from __future__ import (unicode_literals, division, absolute_import, print_function)
 
 import re
 import datetime
