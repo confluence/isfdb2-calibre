@@ -30,8 +30,13 @@ class ISFDB(Source):
     version = (2, 0, 0)
     minimum_calibre_version = (3, 0, 0)
 
-    capabilities = frozenset(['identify', 'cover'])
     can_get_multiple_covers = True
+    has_html_comments = True
+    supports_gzip_transfer_encoding = False
+    cached_cover_url_is_reliable = True
+    prefer_results_with_isbn = False
+    
+    capabilities = frozenset(['identify', 'cover'])
     touched_fields = frozenset(['title', 'authors', 'identifier:isfdb', 'identifier:isfdb-catalog', 'identifier:isfdb-title', 'identifier:isbn', 'publisher', 'pubdate', 'comments'])
 
     options = (
@@ -50,10 +55,6 @@ class ISFDB(Source):
             _('The maximum number of covers to download. This only applies to publication records with no cover. If there is a cover associated with the record, only that cover will be downloaded.')
         ),
     )
-
-    has_html_comments = True
-    supports_gzip_transfer_encoding = False
-    cached_cover_url_is_reliable = True
 
     def __init__(self, *args, **kwargs):
         super(ISFDB, self).__init__(*args, **kwargs)
@@ -82,9 +83,17 @@ class ISFDB(Source):
 
     def get_book_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
+        title_id = identifiers.get('isfdb-title', None)
+        
         if isfdb_id:
             url = Publication.url_from_id(isfdb_id)
             return ('isfdb', isfdb_id, url)
+        
+        if title_id:
+            url = Title.url_from_id(title_id)
+            return ('isfdb-title', title_id, url)
+        
+        return None
 
     def get_cached_cover_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
@@ -98,6 +107,20 @@ class ISFDB(Source):
             return self.cached_identifier_to_cover_url(self.cached_isbn_to_identifier(isbn))
 
         return None
+    
+    def get_author_tokens(self, authors, only_first_author=True):
+        # We override this because we don't want to strip out middle initials!
+        # This *just* attempts to unscramble "surname, first name".
+        if only_first_author:
+            authors = authors[:1]
+        for au in authors:
+            if "," in au:
+                parts = au.split(",")
+                parts = parts[1:] + parts[:1]
+                au = " ".join(parts)
+            for tok in au.split():
+                yield tok
+    
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         '''
@@ -108,17 +131,19 @@ class ISFDB(Source):
         matches = set()
         relevance = {}
 
-        # If we have an ISFDB ID, we use it to construct the publication URL directly
-
-        isfdb_id = identifiers.get('isfdb', None)
-        title_id = identifiers.get('isfdb-title', None)
+        # If we have an ISFDB ID, or a title ID, we use it to construct the publication URL directly
+        book_url_tuple = self.get_book_url(identifiers)
         
-        if isfdb_id:
-            _, _, url = self.get_book_url(identifiers)
+        if book_url_tuple:
+            id_type, id_val, url = book_url_tuple
             matches.add(url)
             relevance[url] = 0 # most relevant
             
-            self.cache_publication_id_to_title_id(isfdb_id, title_id)
+            # If we have a publication ID and a title ID, cache the title ID
+            isfdb_id = identifiers.get('isfdb', None)
+            title_id = identifiers.get('isfdb-title', None)
+            if isfdb_id and title_id:
+                self.cache_publication_id_to_title_id(isfdb_id, title_id)
         else:
             if abort.is_set():
                 return
@@ -144,16 +169,29 @@ class ISFDB(Source):
 
             if abort.is_set():
                 return
-
+            
             # If we haven't reached the maximum number of results, also search by title and author
             if len(matches) < self.prefs["max_results"]:
                 authors = authors or []
-
                 title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
                 author_tokens = self.get_author_tokens(authors, only_first_author=True)
-
+                
                 query = PublicationsList.url_from_title_and_author(title_tokens, author_tokens)
                 urls = PublicationsList.from_url(self.browser, query, timeout, log)
+
+                add_matches(urls, 2)
+
+            if abort.is_set():
+                return
+                
+            # If we still haven't found enough results, also search *titles* by title and author
+            if len(matches) < self.prefs["max_results"]:
+                authors = authors or []
+                title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
+                author_tokens = self.get_author_tokens(authors, only_first_author=True)
+                
+                query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
+                urls = TitleList.from_url(self.browser, query, timeout, log)
 
                 add_matches(urls, 2)
 
@@ -250,7 +288,7 @@ class Worker(Thread):
                 
             elif Title.is_type_of(self.url):
                 self.log.info("This url is a Title.")
-                pub = Title.from_url(self.url)
+                pub = Title.from_url(self.browser, self.url, self.timeout, self.log)
                 
             else:
                 self.log.error("Out of cheese error! Unrecognised url!")

@@ -14,6 +14,7 @@ import datetime
 
 from lxml.html import fromstring, tostring
 from urllib import urlencode
+import codecs
 
 from calibre.utils.cleantext import clean_ascii_chars
 from calibre.library.comments import sanitize_comments_html
@@ -33,6 +34,9 @@ class SearchResults(ISFDBObject):
 
     @classmethod
     def url_from_params(cls, params):
+        for k, v in params.iteritems():
+            params[k] = codecs.encode(v.decode("utf-8"), "cp1252")
+            
         return cls.URL + urlencode(params)
     
     @classmethod
@@ -143,7 +147,7 @@ class TitleList(SearchResults):
         }
 
         return cls.url_from_params(params)
-    
+
     @classmethod
     def url_from_title_and_author(cls, title_tokens, author_tokens):
         title = ' '.join(title_tokens)
