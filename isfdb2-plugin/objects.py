@@ -14,7 +14,6 @@ from calibre.library.comments import sanitize_comments_html
 class ISFDBObject(object):
     @classmethod
     def root_from_url(cls, browser, url, timeout, log):
-        log.info('Fetching: %s' % url)
         response = browser.open_novisit(url, timeout=timeout)
         raw = response.read().decode('cp1252', errors='replace')
         return fromstring(clean_ascii_chars(raw))
@@ -103,9 +102,9 @@ class PublicationsList(SearchResults):
             if not row.xpath('td'):
                 continue # header
 
-            url = ''.join(row.xpath('td[1]/a/@href'))
+            pub_url = ''.join(row.xpath('td[1]/a/@href'))
 
-            publication_urls.append(url)
+            publication_urls.append(pub_url)
 
         log.info("Parsed publications from url %r. Found %d publications." % (url, len(publication_urls)))
 
@@ -171,9 +170,9 @@ class TitleList(SearchResults):
             if not row.xpath('td'):
                 continue # header
 
-            url = ''.join(row.xpath('td[5]/a/@href'))
+            title_url = ''.join(row.xpath('td[5]/a/@href'))
 
-            title_urls.append(url)
+            title_urls.append(title_url)
 
         log.info("Parsed titles from url %r. Found %d titles." % (url, len(title_urls)))
 

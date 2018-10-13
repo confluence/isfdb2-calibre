@@ -118,6 +118,7 @@ class ISFDB(Source):
         present, otherwise up to the maximum searching first for the
         ISBN and then for title and author.
         '''
+        
         matches = set()
         relevance = {}
 
