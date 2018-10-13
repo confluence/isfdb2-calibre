@@ -360,6 +360,9 @@ class Title(Record):
                         tag = a.text_content().strip()
                         if tag != "Add Tags":
                             properties["tags"].append(tag)
+                            
+                # TODO: add type and length as additional tags
+                # TODO: optionally add rating?
 
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )

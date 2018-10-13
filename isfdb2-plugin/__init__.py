@@ -35,7 +35,7 @@ class ISFDB(Source):
             'number',
             10,
             _('Maximum number of search results to download:'),
-            _('This setting only applies to ISBN and title / author searches. Book records with a valid ISFDB ID will return exactly one result.'),
+            _('This setting only applies to ISBN and title / author searches. Book records with a valid ISFDB publication and/or title ID will return exactly one result.'),
         ),
         Option(
             'max_covers',
