@@ -20,7 +20,7 @@ from calibre.ebooks.metadata.book.base import Metadata
 
 #from calibre.utils.localization import get_udc
 
-from calibre_plugins.isfdb.objects import Publication, PublicationsList, TitleList, TitleCovers
+from calibre_plugins.isfdb.objects import Publication, PublicationsList, Title, TitleList, TitleCovers
 
 
 class ISFDB(Source):
@@ -91,6 +91,12 @@ class ISFDB(Source):
             url = Publication.url_from_id(isfdb_id)
             return ('isfdb', isfdb_id, url)
 
+    def get_title_url(self, identifiers):
+        isfdb_title_id = identifiers.get('isfdb-title', None)
+        if isfdb_title_id:
+            url = Title.url_from_id(isfdb_title_id)
+            return ('isfdb-title', isfdb_title_id, url)
+
     def get_cached_cover_url(self, identifiers):
         isfdb_id = identifiers.get('isfdb', None)
         if isfdb_id:
@@ -116,8 +122,13 @@ class ISFDB(Source):
         # If we have an ISFDB ID, we use it to construct the publication URL directly
         
         isfdb_id = identifiers.get('isfdb', None)
+        isfdb_title_id = identifiers.get('isfdb-title', None)
         if isfdb_id:
             _, _, url = self.get_book_url(identifiers)
+            matches.add(url)
+            relevance[url] = 0 # most relevant
+        elif isfdb_title_id:
+            _, _, url = self.get_title_url(identifiers)
             matches.add(url)
             relevance[url] = 0 # most relevant
         else:
@@ -153,8 +164,8 @@ class ISFDB(Source):
                 title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
                 author_tokens = self.get_author_tokens(authors, only_first_author=True)
                 
-                query = PublicationsList.url_from_title_and_author(title_tokens, author_tokens)
-                urls = PublicationsList.from_url(self.browser, query, timeout, log)
+                query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
+                urls = TitleList.from_url(self.browser, query, timeout, log)
                 
                 add_matches(urls, 2)
 
