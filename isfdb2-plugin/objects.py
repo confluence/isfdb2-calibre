@@ -159,7 +159,7 @@ class Publication(ISFDBObject):
         
     @classmethod
     def id_from_url(cls, url):
-        return re.search('(\d+)$', url).groups(0)[0]
+        return re.search('(\d+)$', url).group(1)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
@@ -206,7 +206,7 @@ class Publication(ISFDBObject):
                     properties["isfdb-catalog"] = detail_node[0].tail.strip()
                 elif section == 'Container Title':
                     title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
-                    properties["isfdb-title"] = re.search('(\d+)$', title_url).groups(0)[0]
+                    properties["isfdb-title"] = Title.id_from_url(title_url)
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )
                 
@@ -235,7 +235,7 @@ class TitleCovers(ISFDBObject):
         
     @classmethod
     def id_from_url(cls, url):
-        return re.search('(\d+)$', url).groups(0)[0]
+        return re.search('(\d+)$', url).group(1)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):        
@@ -245,4 +245,10 @@ class TitleCovers(ISFDBObject):
     
 # For completeness, make it possible to fetch publications off a title page via title id (although it doesn't seem super useful)
 class Title(ISFDBObject):
-    pass
+    @classmethod
+    def url_from_id(cls, isfdb_title_id):
+        return cls.TITLE_URL % isfdb_title_id
+
+    @classmethod
+    def id_from_url(cls, url):
+        return re.search('(\d+)$', url).group(1)
