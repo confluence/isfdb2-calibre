@@ -227,6 +227,7 @@ class ISFDB(Source):
             urls.append(cached_url)
 
         else:
+            # TODO what if identify hasn't been run, and this is missing?
             title_id = identifiers.get("isfdb-title")
             title_covers_url = TitleCovers.url_from_id(title_id)
             urls.extend(TitleCovers.from_url(self.browser, title_covers_url, timeout, log))
