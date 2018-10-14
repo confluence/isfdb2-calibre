@@ -54,12 +54,9 @@ class PublicationsList(SearchResults):
         return cls.url_from_params(params)
 
     @classmethod
-    def url_from_title_and_author(cls, title_tokens, author_tokens):
+    def url_from_title_and_author(cls, title, author):
         # TODO support adding price or date as a supplementary field
         # but where will it go in the interface?
-        title = ' '.join(title_tokens)
-        author = ' '.join(author_tokens)
-
         field = 0
 
         params = {
@@ -93,7 +90,7 @@ class PublicationsList(SearchResults):
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
-        publication_urls = []
+        publication_stubs = []
 
         root = cls.root_from_url(browser, url, timeout, log)
         rows = root.xpath('//div[@id="main"]/table/tr')
@@ -102,13 +99,11 @@ class PublicationsList(SearchResults):
             if not row.xpath('td'):
                 continue # header
 
-            pub_url = ''.join(row.xpath('td[1]/a/@href'))
+            publication_stubs.append(Publication.stub_from_search(row))
 
-            publication_urls.append(pub_url)
+        log.info("Parsed publications from url %r. Found %d publications." % (url, len(publication_stubs)))
 
-        log.info("Parsed publications from url %r. Found %d publications." % (url, len(publication_urls)))
-
-        return publication_urls
+        return publication_stubs
 
 
 
@@ -140,28 +135,41 @@ class TitleList(SearchResults):
         return cls.url_from_params(params)
 
     @classmethod
-    def url_from_title_and_author(cls, title_tokens, author_tokens):
-        title = ' '.join(title_tokens)
-        author = ' '.join(author_tokens)
+    def url_from_title_and_author(cls, title, author):
+        field = 0
 
         params = {
-            "USE_1": "title_title",
-            "OPERATOR_1": "contains",
-            "TERM_1": title,
-            "CONJUNCTION_1": "AND",
-            "USE_2": "author_canonical",
-            "OPERATOR_2": "contains",
-            "TERM_2": author,
             "ORDERBY": "title_title",
             "START": "0",
             "TYPE": cls.TYPE,
         }
 
+        if title:
+            field += 1
+            params.update({
+                "USE_%d" % field: "title_title",
+                "OPERATOR_%d" % field: "contains",
+                "TERM_%d" % field: title,
+            })
+
+        if author:
+            field += 1
+            params.update({
+                "USE_%d" % field: "author_canonical",
+                "OPERATOR_%d" % field: "contains",
+                "TERM_%d" % field: author,
+            })
+
+        if "USE_2" in params:
+            params.update({
+                "CONJUNCTION_1": "AND",
+            })
+
         return cls.url_from_params(params)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
-        title_urls = []
+        title_stubs = []
 
         root = cls.root_from_url(browser, url, timeout, log)
         rows = root.xpath('//div[@id="main"]/form/table/tr')
@@ -170,13 +178,11 @@ class TitleList(SearchResults):
             if not row.xpath('td'):
                 continue # header
 
-            title_url = ''.join(row.xpath('td[5]/a/@href'))
+            title_stubs.append(Title.stub_from_search(row))
 
-            title_urls.append(title_url)
+        log.info("Parsed titles from url %r. Found %d titles." % (url, len(title_stubs)))
 
-        log.info("Parsed titles from url %r. Found %d titles." % (url, len(title_urls)))
-
-        return title_urls
+        return title_stubs
 
 
 class Record(ISFDBObject):
@@ -197,6 +203,14 @@ class Publication(Record):
     @classmethod
     def id_from_url(cls, url):
         return re.search('(\d+)$', url).group(1)
+    
+    @classmethod
+    def stub_from_search(cls, row):
+        properties = {}
+        properties["title"] = row.xpath('td[1]/a')[0].text_content()
+        properties["authors"] = [a.text_content() for a in row.xpath('td[3]/a')]
+        properties["url"] = row.xpath('td[1]/a/@href')[0]
+        return properties
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
@@ -300,6 +314,14 @@ class Title(Record):
     @classmethod
     def id_from_url(cls, url):
         return re.search('(\d+)$', url).group(1)
+    
+    @classmethod
+    def stub_from_search(cls, row):
+        properties = {}
+        properties["title"] = row.xpath('td[5]/a')[0].text_content()
+        properties["authors"] = [a.text_content() for a in row.xpath('td[6]/a')]
+        properties["url"] = row.xpath('td[5]/a/@href')[0]
+        return properties
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):

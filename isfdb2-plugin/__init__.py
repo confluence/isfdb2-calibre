@@ -44,6 +44,20 @@ class ISFDB(Source):
             _('Maximum number of covers to download:'),
             _('The maximum number of covers to download. This only applies to publication records with no cover. If there is a cover associated with the record, only that cover will be downloaded.')
         ),
+        Option(
+            'search_publications',
+            'bool',
+            True,
+            _('Search ISFDB publications?'),
+            _('This only applies to title / author searches. A record with a publication ID will always return a publication.')
+        ),
+        Option(
+            'search_titles',
+            'bool',
+            True,
+            _('Search ISFDB titles?'),
+            _('This only applies to title / author searches. A record with a title ID and no publication ID will always return a title.')
+        ),
     )
 
     def __init__(self, *args, **kwargs):
@@ -120,15 +134,13 @@ class ISFDB(Source):
         '''
         
         matches = set()
-        relevance = {}
 
         # If we have an ISFDB ID, or a title ID, we use it to construct the publication URL directly
         book_url_tuple = self.get_book_url(identifiers)
         
         if book_url_tuple:
             id_type, id_val, url = book_url_tuple
-            matches.add(url)
-            relevance[url] = 0 # most relevant
+            matches.add((url, 0)) # most relevant
             
             # If we have a publication ID and a title ID, cache the title ID
             isfdb_id = identifiers.get('isfdb', None)
@@ -139,14 +151,6 @@ class ISFDB(Source):
             if abort.is_set():
                 return
 
-            def add_matches(urls, relevance_score):
-                for url in urls:
-                    matches.add(url)
-                    relevance[url] = relevance_score
-
-                    if len(matches) >= self.prefs["max_results"]:
-                        break
-
             isbn = check_isbn(identifiers.get('isbn', None))
             catalog_id = identifiers.get('isfdb-catalog', None)
 
@@ -154,42 +158,62 @@ class ISFDB(Source):
             # Fall back to non-ISBN catalog ID -- ISFDB uses the same field for both.
             if isbn or catalog_id:
                 query = PublicationsList.url_from_isbn(isbn or catalog_id)
-                urls = PublicationsList.from_url(self.browser, query, timeout, log)
-
-                add_matches(urls, 1)
+                stubs = PublicationsList.from_url(self.browser, query, timeout, log)
+                
+                for stub in stubs:
+                    matches.add((stub["url"], 1))
+                    if len(matches) >= self.prefs["max_results"]:
+                        break
 
             if abort.is_set():
                 return
             
-            # If we haven't reached the maximum number of results, also search by title and author
-            if len(matches) < self.prefs["max_results"]:
-                authors = authors or []
-                title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
-                author_tokens = self.get_author_tokens(authors, only_first_author=True)
+            def stripped(s):
+                return "".join(c.lower() for c in s if c.isalpha() or c.isspace())
                 
-                query = PublicationsList.url_from_title_and_author(title_tokens, author_tokens)
-                urls = PublicationsList.from_url(self.browser, query, timeout, log)
+            authors = authors or []
+            title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
+            author_tokens = self.get_author_tokens(authors, only_first_author=True)
+            title = ' '.join(title_tokens)
+            author = ' '.join(author_tokens)
+            
+            # If we haven't reached the maximum number of results, also search by title and author
+            if len(matches) < self.prefs["max_results"] and self.prefs["search_publications"]:
+                query = PublicationsList.url_from_title_and_author(title, author)
+                stubs = PublicationsList.from_url(self.browser, query, timeout, log)
 
-                add_matches(urls, 2)
+                for stub in stubs:
+                    relevance = 2
+                    if stripped(stub["title"]) == stripped(title):
+                        relevance = 0
+                    
+                    matches.add((stub["url"], relevance))
+                    
+                    if len(matches) >= self.prefs["max_results"]:
+                        break
 
             if abort.is_set():
                 return
                 
             # If we still haven't found enough results, also search *titles* by title and author
-            if len(matches) < self.prefs["max_results"]:
-                authors = authors or []
-                title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
-                author_tokens = self.get_author_tokens(authors, only_first_author=True)
-                
-                query = TitleList.url_from_title_and_author(title_tokens, author_tokens)
-                urls = TitleList.from_url(self.browser, query, timeout, log)
+            if len(matches) < self.prefs["max_results"] and self.prefs["search_titles"]:
+                query = TitleList.url_from_title_and_author(title, author)
+                stubs = TitleList.from_url(self.browser, query, timeout, log)
 
-                add_matches(urls, 2)
+                for stub in stubs:
+                    relevance = 2
+                    if stripped(stub["title"]) == stripped(title):
+                        relevance = 0
+                    
+                    matches.add((stub["url"], relevance))
+                    
+                    if len(matches) >= self.prefs["max_results"]:
+                        break
 
         if abort.is_set():
             return
 
-        workers = [Worker(m, result_queue, self.browser, log, relevance[m], self) for m in matches]
+        workers = [Worker(m_url, result_queue, self.browser, log, m_rel, self) for (m_url, m_rel) in matches]
 
         for w in workers:
             w.start()
@@ -265,9 +289,9 @@ class Worker(Thread):
                     
                     title, author, ttype = pub["title"], pub["author_string"], pub["type"]
                     query = TitleList.url_from_exact_title_author_and_type(title, author, ttype)
-                    titles = TitleList.from_url(self.browser, query, self.timeout, self.log)
+                    stubs = TitleList.from_url(self.browser, query, self.timeout, self.log)
                     
-                    title_ids = [Title.id_from_url(t) for t in titles]
+                    title_ids = [Title.id_from_url(t["url"]) for t in stubs]
                 else:
                     title_ids = [title_id]
                     
