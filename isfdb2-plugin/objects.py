@@ -300,9 +300,11 @@ class TitleCovers(Record):
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
+        covers = []
         root = cls.root_from_url(browser, url, timeout, log)
-        return root.xpath('//div[@id="main"]/a/img/@src')
-
+        covers = root.xpath('//div[@id="main"]/a/img/@src')
+        log.info("Parsed covers from url %r. Found %d covers." % (url, len(covers)))
+        return covers
 
 class Title(Record):
     URL = 'http://www.isfdb.org/cgi-bin/title.cgi?'

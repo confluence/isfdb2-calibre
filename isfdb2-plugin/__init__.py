@@ -132,12 +132,11 @@ class ISFDB(Source):
         present, otherwise up to the maximum searching first for the
         ISBN and then for title and author.
         '''
-        
         matches = set()
-
+        
         # If we have an ISFDB ID, or a title ID, we use it to construct the publication URL directly
         book_url_tuple = self.get_book_url(identifiers)
-        
+                
         if book_url_tuple:
             id_type, id_val, url = book_url_tuple
             matches.add((url, 0)) # most relevant
@@ -209,17 +208,17 @@ class ISFDB(Source):
                     
                     if len(matches) >= self.prefs["max_results"]:
                         break
-
+        
         if abort.is_set():
             return
 
-        workers = [Worker(m_url, result_queue, self.browser, log, m_rel, self) for (m_url, m_rel) in matches]
-
+        workers = [Worker(m_url, result_queue, self.browser, log, m_rel, self, timeout) for (m_url, m_rel) in matches]
+        
         for w in workers:
             w.start()
             # Don't send all requests at the same time
             time.sleep(0.1)
-
+            
         while not abort.is_set():
             a_worker_is_alive = False
             for w in workers:
@@ -230,23 +229,54 @@ class ISFDB(Source):
                     a_worker_is_alive = True
             if not a_worker_is_alive:
                 break
-
-        return None
-
+    
     def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30, get_best_cover=False):
         urls = []
 
         cached_url = self.get_cached_cover_url(identifiers)
+        title_id = identifiers.get("isfdb-title")
+        
+        if not cached_url and not title_id:
+            log.info("Not enough information. Running identify.")
+            rq = Queue()
+            self.identify(log, rq, abort, title, authors, identifiers, timeout)
+            
+            if abort.is_set():
+                return
+            
+            results = []
+            
+            while True:
+                try:
+                    results.append(rq.get_nowait())
+                except Empty:
+                    break
+                
+            if len(results) == 1:
+                # Found a specific publication or title; try to get cached url or title
+                mi = results[0]
+                cached_url = self.get_cached_cover_url(mi.identifiers)
+                title_id = mi.identifiers.get("isfdb-title")
+            else:
+                # Try to get all title results
+                for mi in results:
+                    title_id = mi.identifiers.get("isfdb-title")
+                    if title_id:
+                        break
 
         if cached_url:
+            log.info("Using cached cover URL.")
             urls.append(cached_url)
 
-        else:
-            # TODO what if identify hasn't been run, and this is missing?
-            title_id = identifiers.get("isfdb-title")
+        elif title_id:
+            log.info("Finding all title covers.")
             title_covers_url = TitleCovers.url_from_id(title_id)
             urls.extend(TitleCovers.from_url(self.browser, title_covers_url, timeout, log))
-
+            
+        else:
+            # Everything is spiders
+            log.error("We were unable to find any covers.")
+            
         if abort.is_set():
             return
 
