@@ -307,6 +307,24 @@ class TitleCovers(Record):
 class Title(Record):
     URL = 'http://www.isfdb.org/cgi-bin/title.cgi?'
     
+    TYPE_TO_TAG = {
+            "ANTHOLOGY": "anthology",
+            "CHAPBOOK": "chapbook",
+            "COLLECTION": "collection",
+            "ESSAY": "essay",
+            "FANZINE": "fanzine",
+            "MAGAZINE": "magazine",
+            "NONFICTION": "non-fiction",
+            "NOVEL": "novel",
+            "NOVEL\n [non-genre]": "novel",
+            "OMNIBUS": "omnibus",
+            "POEM": "poem",
+            "SERIAL": "serial",
+            "SHORTFICTION": "short fiction",
+            "SHORTFICTION\n [juvenile]": "juvenile, short fiction",
+            "SHORTFICTION\n [non-genre]": "short fiction"
+        }
+    
     @classmethod
     def url_from_id(cls, isfdb_title_id):
         return cls.URL + isfdb_title_id
@@ -362,6 +380,15 @@ class Title(Record):
                             properties["authors"].append(author)
                 elif section == 'Type':
                     properties["type"] = detail_node[0].tail.strip()
+                    if "tags" not in properties:
+                        properties["tags"] = []
+                    tags = cls.TYPE_TO_TAG[properties["type"]]
+                    properties["tags"].extend([t.strip() for t in tags.split(",")])
+                elif section == 'Length':
+                    properties["length"] = detail_node[0].tail.strip()
+                    if "tags" not in properties:
+                        properties["tags"] = []
+                    properties["tags"].append(properties["length"])
                 elif section == 'Date':
                     date_text = detail_node[0].tail.strip()
                     # We use this instead of strptime to handle dummy days and months
@@ -375,14 +402,14 @@ class Title(Record):
                 elif section == 'Series Number':
                     properties["series_index"] = float(detail_node[0].tail.strip())
                 elif section == 'Current Tags':
-                    properties["tags"] = []
+                    if "tags" not in properties:
+                        properties["tags"] = []
                     tag_links = [e for e in detail_node if e.tag == 'a']
                     for a in tag_links:
                         tag = a.text_content().strip()
                         if tag != "Add Tags":
                             properties["tags"].append(tag)
                             
-                # TODO: add type and length as additional tags
                 # TODO: optionally add rating?
 
             except Exception as e:
