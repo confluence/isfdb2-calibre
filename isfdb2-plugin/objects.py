@@ -409,8 +409,6 @@ class Title(Record):
                         tag = a.text_content().strip()
                         if tag != "Add Tags":
                             properties["tags"].append(tag)
-                            
-                # TODO: optionally add rating?
 
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )
