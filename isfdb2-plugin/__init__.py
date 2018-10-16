@@ -17,7 +17,7 @@ class ISFDB(Source):
     name = 'ISFDB'
     description = _('Downloads metadata and covers from ISFDB')
     author = 'Adrianna Pińska'
-    version = (2, 0, 0)
+    version = (2, 1, 0)
     minimum_calibre_version = (3, 0, 0)
 
     can_get_multiple_covers = True
