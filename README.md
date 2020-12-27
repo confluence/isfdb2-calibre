@@ -1,6 +1,6 @@
 # isfdb2-calibre
 
-This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguing of physical collections of speculative fiction books. It is based on the [ISFDB Calibre plugin][1] written by Xtina Schelin, which I was maintaining in a [fork][2].
+This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguing of physical collections of speculative fiction books. It is based on the [ISFDB Calibre plugin][1] written by Xtina Schelin, which I was maintaining in a [fork][2]. Calibre was migrated to Python 3 in version 5.0, and I have migrated this plugin accordingly. I will not be maintaining a Python 2 fork for older Calibre versions.
 
 ## Installation instructions (Linux and Mac; Windows should be similar):
 
