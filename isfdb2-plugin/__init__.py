@@ -1,9 +1,8 @@
-#!/usr/bin/env python
-from __future__ import (unicode_literals, division, absolute_import, print_function)
+#!/usr/bin/env python3
 
 import time
 
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from threading import Thread
 
 from calibre.ebooks.metadata import check_isbn
@@ -17,8 +16,8 @@ class ISFDB(Source):
     name = 'ISFDB'
     description = _('Downloads metadata and covers from ISFDB')
     author = 'Adrianna Pińska'
-    version = (2, 1, 0)
-    minimum_calibre_version = (3, 0, 0)
+    version = (3, 0, 0)
+    minimum_calibre_version = (5, 0, 0)
 
     can_get_multiple_covers = True
     has_html_comments = True

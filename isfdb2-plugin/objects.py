@@ -1,11 +1,10 @@
-#!/usr/bin/env python
-from __future__ import (unicode_literals, division, absolute_import, print_function)
+#!/usr/bin/env python3
 
 import re
 import datetime
 
 from lxml.html import fromstring, tostring
-from urllib import urlencode
+from urllib.parse import urlencode
 import codecs
 
 from calibre.utils.cleantext import clean_ascii_chars
@@ -15,7 +14,7 @@ class ISFDBObject(object):
     @classmethod
     def root_from_url(cls, browser, url, timeout, log):
         response = browser.open_novisit(url, timeout=timeout)
-        raw = response.read().decode('cp1252', errors='replace')
+        raw = response.read()
         return fromstring(clean_ascii_chars(raw))
 
 
@@ -25,9 +24,6 @@ class SearchResults(ISFDBObject):
 
     @classmethod
     def url_from_params(cls, params):
-        for k, v in params.iteritems():
-            params[k] = codecs.encode(v.decode("utf-8"), "cp1252")
-            
         return cls.URL + urlencode(params)
     
     @classmethod
