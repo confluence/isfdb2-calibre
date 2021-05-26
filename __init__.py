@@ -18,7 +18,7 @@ class ISFDB(Source):
     author = 'Adrianna Pińska'
     # author = 'Michael Detambel'
     version = (3, 0, 1)
-    # ToDo: Handling multiple publications:
+    # ToDo: Check/code Handling multiple publications:
     # http://www.isfdb.org/cgi-bin/adv_search_results.cgi?USE_1=title_title&O_1=contains&TERM_1=Schattenexperiment&C=AND&USE_2=title_title&O_2=exact&TERM_2=&USE_3=title_title&O_3=exact&TERM_3=&USE_4=title_title&O_4=exact&TERM_4=&USE_5=title_title&O_5=exact&TERM_5=&USE_6=title_title&O_6=exact&TERM_6=&USE_7=title_title&O_7=exact&TERM_7=&USE_8=title_title&O_8=exact&TERM_8=&USE_9=title_title&O_9=exact&TERM_9=&USE_10=title_title&O_10=exact&TERM_10=&ORDERBY=title_title&ACTION=query&START=0&TYPE=Title
     minimum_calibre_version = (5, 0, 0)
 
