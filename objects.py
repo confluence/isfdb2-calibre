@@ -210,6 +210,9 @@ class Publication(Record):
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
+
+        log.info('*** Enter Publication.from_url.')
+
         properties = {}
         properties["isfdb"] = cls.id_from_url(url)
 
@@ -223,6 +226,9 @@ class Publication(Record):
 
         for detail_node in detail_nodes:
             section = detail_node[0].text_content().strip().rstrip(':')
+
+            log.info('section={}', format(section))
+
             try:
                 if section == 'Publication':
                     properties["title"] = detail_node[0].tail.strip()
@@ -249,6 +255,16 @@ class Publication(Record):
                     properties["isbn"] = detail_node[0].tail.strip('[] \n')
                 elif section == 'Publisher':
                     properties["publisher"] = detail_node.xpath('a')[0].text_content().strip()
+
+                elif section == 'Pub. Series':
+                    properties["series"] = detail_node.xpath('a')[0].text_content().strip()
+                elif section == 'Pub. Series #':
+                    properties["series_index"] = \
+                        int("".join(filter(str.isdigit, detail_node[0].tail)))
+                        # int("".join(filter(str.isdigit, detail_node.xpath('.')[0].text_content())))
+                elif section == 'Notes':
+                    properties["notes"] = sanitize_comments_html(tostring(detail_node[0], method='html'))
+
                 elif section == 'Date':
                     date_text = detail_node[0].tail.strip()
                     # We use this instead of strptime to handle dummy days and months
@@ -257,6 +273,10 @@ class Publication(Record):
                     month = month or 1
                     day = day or 1
                     properties["pubdate"] = datetime.datetime(year, month, day)
+                    # Correct datetime result for day = 0
+                    # (if not, datetime goes back to last month and if january, even to december last year)
+                    # ToDo: Correct hour to publisher's timezone
+                    properties["pubdate"] = datetime.datetime(year, month, day, 2, 0, 0)
                 elif section == 'Catalog ID':
                     properties["isfdb-catalog"] = detail_node[0].tail.strip()
                 elif section == 'Container Title':
@@ -270,6 +290,12 @@ class Publication(Record):
 
             if contents_node:
                 properties["comments"] = sanitize_comments_html(tostring(contents_node[0], method='html'))
+                try:
+                    properties["comments"] = properties["comments"] + '<br /><br />' + properties['notes']
+                except KeyError:
+                    pass
+                properties["comments"] = properties["comments"] + '<br /><br />Quelle: ' + url  # ToDo: Translate 'Quelle'
+
         except Exception as e:
             log.exception('Error parsing comments for url: %r. Error: %r' % (url, e))
 
@@ -360,6 +386,7 @@ class Title(Record):
                 
         for detail_node in detail_nodes:
             section = detail_node[0].text_content().strip().rstrip(':')
+            log.info('section={0}', format(section))
             try:
                 if section == 'Title':
                     properties["title"] = detail_node[0].tail.strip()
