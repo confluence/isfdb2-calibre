@@ -625,28 +625,26 @@ class Title(Record):
         properties = {}
 
         if row is None:
-            log.error('row ist None.')
+            log.error('Title.stub_from_search(): row ist None.')
             return properties
-        else:
-            pass
-            log.info('row={0}'.format(row))
 
-        # possible selectors
         try:
             # #main > form > table > tbody > tr.table1 > td:nth-child(5)
             properties["title"] = row.xpath('td[5]/a')[0].text_content()
             properties["url"] = row.xpath('td[5]/a/@href')[0]
         except IndexError:
-
-
-            # ToDo: now
-            # #main > form > table > tbody > tr.table2 > td:nth-child(5) > div > a (When link has a tooltip)
-            properties["title"] = row.xpath('td[5]/div/a/text()')[0].text_content()
+            # Handling Tooltip in div
+            # //*[@id="main"]/form/table/tbody/tr[3]/td[5]/div
+            properties["title"] = row.xpath('td[5]/div/a/text()')[0]
             properties["url"] = row.xpath('td[5]/div/a/@href')[0]
+            # log.info('properties["title"]={0}, properties["url"]={1}.'.format(properties["title"], properties["url"]))
 
+        try:
+            properties["authors"] = [a.text_content() for a in row.xpath('td[6]/a')]
+        except IndexError:
+            # Handling Tooltip in div
+            properties["title"] = [a.text_content() for a in row.xpath('td[6]/div/a/text()')]
 
-
-        properties["authors"] = [a.text_content() for a in row.xpath('td[6]/a')]
         return properties
 
     @classmethod
