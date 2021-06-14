@@ -173,19 +173,20 @@ class ISFDB(Source):
             for tok in au.split():
                 yield tok
 
-    # def clean_downloaded_metadata(self, mi):
-    #     '''
-    #     Call this method in your plugin's identify method to normalize metadata
-    #     before putting the Metadata object into result_queue. You can of
-    #     course, use a custom algorithm suited to your metadata source.
-    #     '''
-    #     docase = mi.language == 'eng'  # or mi.is_null('language')
-    #     if docase and mi.title:
+    def clean_downloaded_metadata(self, mi):
+        '''
+        Call this method in your plugin's identify method to normalize metadata
+        before putting the Metadata object into result_queue. You can of
+        course, use a custom algorithm suited to your metadata source.
+        '''
+        docase = mi.language == 'eng'  # or mi.is_null('language')
+        if docase and mi.title:
+            pass  # Leave as is
     #         mi.title = fixcase(mi.title)
     #         mi.authors = fixauthors(mi.authors)
-    #     if mi.tags and docase:
-    #         mi.tags = list(map(fixcase, mi.tags))
-    #     mi.isbn = check_isbn(mi.isbn)
+        if mi.tags and docase:
+            mi.tags = list(map(fixcase, mi.tags))
+        mi.isbn = check_isbn(mi.isbn)
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         '''

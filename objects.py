@@ -114,6 +114,13 @@ class PublicationsList(SearchResults):
         publication_stubs = []
 
         root = cls.root_from_url(browser, url, timeout, log)
+
+        # Get rid of tooltips
+        for tooltip in root.xpath('//sup[@class="mouseover"]'):
+            tooltip.getparent().remove(tooltip)  # here I grab the parent of the element to call the remove directly on it
+        for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
+            tooltip.getparent().remove(tooltip)  # here I grab the parent of the element to call the remove directly on it
+
         rows = root.xpath('//div[@id="main"]/table/tr')
 
         for row in rows:
@@ -258,6 +265,12 @@ class Publication(Record):
 
         root = cls.root_from_url(browser, url, timeout, log)
 
+        # Get rid of tooltips
+        for tooltip in root.xpath('//sup[@class="mouseover"]'):
+            tooltip.getparent().remove(tooltip)  # here I grab the parent of the element to call the remove directly on it
+        for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
+            tooltip.getparent().remove(tooltip)  # here I grab the parent of the element to call the remove directly on it
+
         # Records with a cover image
         detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
         # Records without a cover image
@@ -337,7 +350,6 @@ class Publication(Record):
                 elif section == 'Cover':
                     properties["cover"] = ' '.join([x for x in detail_node.itertext()]).strip().replace('\n', '')
                     properties["cover"] = properties["cover"].replace('  ', ' ')
-                    # ToDo: Handling Tooltip in div tag
 
                 elif section == 'Notes':
                     notes_nodes = detail_node.xpath('./div[@class="notes"]/ul')  # /li
@@ -778,10 +790,10 @@ class Title(Record):
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e))
 
-        if comments in properties:
-            properties["comments"] = '<br/>' + _('Source: ') + url
+        if 'comments' in properties:
+            properties["comments"] = properties["comments"] + '<br />' + _('Source: ') + url
         else:
-            properties["comments"] = properties["comments"] + '<br/>' + _('Source: ') + url
+            properties["comments"] = '<br />' + _('Source: ') + url
 
         publication_links = root.xpath('//a[contains(@href, "/pl.cgi?")]/@href')
         properties["publications"] = [Publication.id_from_url(l) for l in publication_links]
