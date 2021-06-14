@@ -21,11 +21,15 @@ from calibre.utils.config import JSONConfig
 STORE_NAME = 'Options'
 KEY_MAX_DOWNLOADS = 'maxDownloads'
 KEY_APPEND_CONTENTS = 'appendContents'
+KEY_COMBINE_SERIES = 'appendContents'
+KEY_SEARCH_OPTIONS = 'searchOptions'
 
 DEFAULT_STORE_VALUES = {
 	KEY_MAX_DOWNLOADS: 1,
-	KEY_APPEND_CONTENTS: False
+	KEY_APPEND_CONTENTS: False,
 	KEY_SEARCH_OPTIONS: ['is exactly', 'is not exactly', 'contains', 'does not contain', 'starts with', 'ends with']
+		# {is_exactly: 'is exactly', is_not_exactly: 'is not exactly', contains: 'contains',
+		#				 does_not_contains: 'does not contain', starts_with: 'starts with', ends_with: 'ends with'}
 }
 
 # This is where all preferences for this plugin will be stored.
@@ -35,6 +39,7 @@ plugin_prefs = JSONConfig('plugins/ISFDB')
 plugin_prefs.defaults[STORE_NAME] = DEFAULT_STORE_VALUES
 
 class ConfigWidget(DefaultConfigWidget):
+
 	def __init__(self, plugin):
 		DefaultConfigWidget.__init__(self, plugin)
 		c = plugin_prefs[STORE_NAME]
@@ -67,17 +72,23 @@ class ConfigWidget(DefaultConfigWidget):
 		other_group_box_layout.addWidget(self.contents_checkbox, 2, 0, 1, 3)
 
 		# Search options
-		# ToDo: Translate
-		self.search_options = QButtonGroup('Search options')
-		self.search_options.setToolTip('Choosing on of the options for search variants.')
+		self.search_options = QButtonGroup(_('Search options'))
+		self.search_options.setToolTip(_('Choose one of the options for search variants.'))
 		for i in range(KEY_SEARCH_OPTIONS):
-			self.search_option = QRadioButton(i)
-			self.search_option.setObjectName(KEY_SEARCH_OPTIONS[i])
+			self.search_option = QRadioButton(KEY_SEARCH_OPTIONS[i], self)
+			# self.search_option.setObjectName(i)
 			if KEY_SEARCH_OPTIONS[i] == 'contains':
 				self.search_option.setChecked(True)
-			self.search_options.addButton(i)
+			self.search_options.addButton(self.search_option, 0, i)
 			#			self.b1.toggled.connect(lambda: self.btnstate(self.b1))
 		other_group_box_layout.addWidget(self.search_options, 3, 0, 1, 3)
+
+		# Combine series and sub-series?
+		self.combine_series_checkbox = QCheckBox(_('Combine series and sub-series', self))
+		self.combine_series_checkbox.setToolTip(_('Choosing this option will set the series field with series and sub-series \n'
+									  '(if any).'))
+		self.combine_series_checkbox.setChecked(c.get(KEY_APPEND_CONTENTS, DEFAULT_STORE_VALUES[KEY_COMBINE_SERIES]))
+		other_group_box_layout.addWidget(self.combine_series_checkbox, 4, 0, 1, 3)
 
 
 	def commit(self):
@@ -85,5 +96,5 @@ class ConfigWidget(DefaultConfigWidget):
 		new_prefs = {}
 		new_prefs[KEY_MAX_DOWNLOADS] = int(unicode(self.max_downloads_spin.value()))
 		new_prefs[KEY_APPEND_CONTENTS] = self.contents_checkbox.checkState() == Qt.Checked
-		new_prefs[KEY_SEARCH_OPTIONS] = self.search_options.checkState() == Qt.Checked
+		# new_prefs[KEY_SEARCH_OPTIONS] = self.search_options.checkState() == Qt.Checked
 		plugin_prefs[STORE_NAME] = new_prefs
