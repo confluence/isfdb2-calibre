@@ -77,7 +77,7 @@ class PublicationsList(SearchResults):
         field = 0
 
         params = {
-            "ORDERBY": "pub_year",  # "ORDERBY": "pub_title",
+            "ORDERBY": "pub_title",  # "ORDERBY": "pub_year"
             "START": "0",
             "TYPE": cls.TYPE,
         }
@@ -171,8 +171,6 @@ class TitleList(SearchResults):
                 "USE_%d" % field: "title_title",
                 "OPERATOR_%d" % field: "contains",
                 "TERM_%d" % field: title,
-                # "TERM_%d" % field: title.encode(encoding='iso-8859-1',errors='ignore'),  # save german umlauts
-                # Überfall+vom+achten+Planeten
             })
 
         if author:
@@ -181,7 +179,6 @@ class TitleList(SearchResults):
                 "USE_%d" % field: "author_canonical",
                 "OPERATOR_%d" % field: "contains",
                 "TERM_%d" % field: author,
-                # "TERM_%d" % field: author.encode(encoding='iso-8859-1',errors='ignore'),  # save german umlauts
             })
 
         if "USE_2" in params:
@@ -284,6 +281,7 @@ class Publication(Record):
                     if not properties["title"]:
                         # assume an extra span with a transliterated title tooltip
                         properties["title"] = detail_node[1].text_content().strip()
+
                 elif section in ('Author', 'Authors', 'Editor', 'Editors'):
                     properties["authors"] = []
                     for a in detail_node.xpath('.//a'):
@@ -298,10 +296,17 @@ class Publication(Record):
                             properties["authors"].append(author + ' (Editor)')
                         else:
                             properties["authors"].append(author)
+
                 elif section == 'Type':
                     properties["type"] = detail_node[0].tail.strip()
+
+                elif section == 'Format':
+                    # ToDo: Handling Tooltip in div tag
+                    properties["format"] = detail_node[0].tail.strip()
+
                 elif section == 'ISBN':
                     properties["isbn"] = detail_node[0].tail.strip('[] \n')
+
                 elif section == 'Publisher':
                     properties["publisher"] = detail_node.xpath('a')[0].text_content().strip()
 
@@ -332,6 +337,7 @@ class Publication(Record):
                 elif section == 'Cover':
                     properties["cover"] = ' '.join([x for x in detail_node.itertext()]).strip().replace('\n', '')
                     properties["cover"] = properties["cover"].replace('  ', ' ')
+                    # ToDo: Handling Tooltip in div tag
 
                 elif section == 'Notes':
                     notes_nodes = detail_node.xpath('./div[@class="notes"]/ul')  # /li
@@ -631,9 +637,15 @@ class Title(Record):
             properties["title"] = row.xpath('td[5]/a')[0].text_content()
             properties["url"] = row.xpath('td[5]/a/@href')[0]
         except IndexError:
+
+
+            # ToDo: now
             # #main > form > table > tbody > tr.table2 > td:nth-child(5) > div > a (When link has a tooltip)
             properties["title"] = row.xpath('td[5]/div/a/text()')[0].text_content()
             properties["url"] = row.xpath('td[5]/div/a/@href')[0]
+
+
+
         properties["authors"] = [a.text_content() for a in row.xpath('td[6]/a')]
         return properties
 
