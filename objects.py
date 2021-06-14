@@ -677,7 +677,7 @@ class Title(Record):
                     properties["title"] = detail_node[0].tail.strip()
                     if not properties["title"]:
                         # assume an extra span with a transliterated title tooltip
-                        properties["title"] = detail_node[1].text_content().strip()
+                        properties["title"] = detail_node[1].text_content().split('?')[0].strip()
 
                 elif section in ('Author', 'Authors', 'Editor', 'Editors'):
                     properties["authors"] = []
@@ -777,6 +777,11 @@ class Title(Record):
 
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e))
+
+        if comments in properties:
+            properties["comments"] = '<br/>' + _('Source: ') + url
+        else:
+            properties["comments"] = properties["comments"] + '<br/>' + _('Source: ') + url
 
         publication_links = root.xpath('//a[contains(@href, "/pl.cgi?")]/@href')
         properties["publications"] = [Publication.id_from_url(l) for l in publication_links]
