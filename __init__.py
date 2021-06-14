@@ -259,7 +259,7 @@ class ISFDB(Source):
             title = ' '.join(title_tokens)
             author = ' '.join(author_tokens)
 
-            # Why this?
+            # Why this? (bertholdm)
             # If we haven't reached the maximum number of results, also search by title and author
             if len(matches) < self.prefs["max_results"] and self.prefs["search_publications"]:
                 query = PublicationsList.url_from_title_and_author(title, author, log)
