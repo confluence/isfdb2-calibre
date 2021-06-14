@@ -184,9 +184,9 @@ class ISFDB(Source):
             pass  # Leave as is
     #         mi.title = fixcase(mi.title)
     #         mi.authors = fixauthors(mi.authors)
-        if mi.tags and docase:
-            mi.tags = list(map(fixcase, mi.tags))
-        mi.isbn = check_isbn(mi.isbn)
+    #     if mi.tags and docase:
+    #         mi.tags = list(map(fixcase, mi.tags))
+    #     mi.isbn = check_isbn(mi.isbn)
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         '''
