@@ -39,7 +39,13 @@ class SearchResults(ISFDBObject):
         # search link should be (encoded by isfdb.org search form itself):
         # isfdb.org: http://www.isfdb.org/cgi-bin/adv_search_results.cgi?USE_1=title_title&O_1=contains&TERM_1=%DCberfall+vom+achten+Planeten&C=AND&USE_2=title_title&O_2=exact&TERM_2=&USE_3=title_title&O_3=exact&TERM_3=&USE_4=title_title&O_4=exact&TERM_4=&USE_5=title_title&O_5=exact&TERM_5=&USE_6=title_title&O_6=exact&TERM_6=&USE_7=title_title&O_7=exact&TERM_7=&USE_8=title_title&O_8=exact&TERM_8=&USE_9=title_title&O_9=exact&TERM_9=&USE_10=title_title&O_10=exact&TERM_10=&ORDERBY=title_title&ACTION=query&START=0&TYPE=Title
         # log.info("urlencode(params, encoding='iso-8859-1')={0}".format(urlencode(params, encoding='iso-8859-1')))
-        return cls.URL + urlencode(params, encoding='iso-8859-1')
+        try:
+            return cls.URL + urlencode(params, encoding='iso-8859-1')
+        except UnicodeEncodeError as e:
+            log.error('Error while encoding {0}: {1}.'.format(params, e))
+            encoded_params = urlencode(params, encoding='iso-8859-1', errors='replace')
+            encoded_params = encoded_params.split('%3F')[0][:-1]  # cut the search string (? is the encoding replae char)
+            return cls.URL + encoded_params
 
     @classmethod
     def is_type_of(cls, url):
@@ -312,7 +318,8 @@ class Publication(Record):
                     properties["authors"] = []
                     for a in detail_node.xpath('.//a'):
                         author = a.text_content().strip()
-
+                        if author == 'uncredited':
+                            author = 'unknown'
                         # For looking up the corresponding title.
                         # We can only use the first author because the search is broken.
                         if "author_string" not in properties:
@@ -721,6 +728,8 @@ class Title(Record):
                     author_links = [e for e in detail_node if e.tag == 'a']
                     for a in author_links:
                         author = a.text_content().strip()
+                        if author == 'uncredited':
+                            author = 'unknown'
                         if section.startswith('Editor'):
                             properties["authors"].append(author + ' (Editor)')
                         else:
