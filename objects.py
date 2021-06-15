@@ -340,7 +340,10 @@ class Publication(Record):
                     properties["isbn"] = detail_node[0].tail.strip('[] \n')
 
                 elif section == 'Publisher':
-                    properties["publisher"] = detail_node.xpath('a')[0].text_content().strip()
+                    try:
+                        properties["publisher"] = detail_node.xpath('a')[0].text_content().strip()
+                    except IndexError:
+                        properties["publisher"] = detail_node.xpath('div/a')[0].text_content().strip()  # toolötip div
 
                 elif section == 'Pub. Series':
                     # If series is a url, open series page and search for "Sub-series of:"
