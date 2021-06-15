@@ -116,11 +116,14 @@ class PublicationsList(SearchResults):
         root = cls.root_from_url(browser, url, timeout, log)
 
         # Get rid of tooltips
-        for tooltip in root.xpath('//sup[@class="mouseover"]'):
-            tooltip.getparent().remove(tooltip)  # here I grab the parent of the element to call the remove directly on it
-        for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
-            tooltip.getparent().remove(tooltip)  # here I grab the parent of the element to call the remove directly on it
-
+        try:
+            for tooltip in root.xpath('//sup[@class="mouseover"]'):
+                tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+            for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
+                tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+        except:
+            pass
+                
         rows = root.xpath('//div[@id="main"]/table/tr')
 
         for row in rows:
@@ -204,6 +207,16 @@ class TitleList(SearchResults):
         title_stubs = []
 
         root = cls.root_from_url(browser, url, timeout, log)  # site encoding is iso-8859-1
+        
+        # Get rid of tooltips
+        try:
+            for tooltip in root.xpath('//sup[@class="mouseover"]'):
+                tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+            for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
+                tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+        except:
+            pass
+        
         rows = root.xpath('//div[@id="main"]/form/table/tr')
 
         for row in rows:
@@ -267,9 +280,9 @@ class Publication(Record):
 
         # Get rid of tooltips
         for tooltip in root.xpath('//sup[@class="mouseover"]'):
-            tooltip.getparent().remove(tooltip)  # here I grab the parent of the element to call the remove directly on it
+            tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
         for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
-            tooltip.getparent().remove(tooltip)  # here I grab the parent of the element to call the remove directly on it
+            tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
 
         # Records with a cover image
         detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
@@ -314,7 +327,6 @@ class Publication(Record):
                     properties["type"] = detail_node[0].tail.strip()
 
                 elif section == 'Format':
-                    # ToDo: Handling Tooltip in div tag
                     properties["format"] = detail_node[0].tail.strip()
 
                 elif section == 'ISBN':
@@ -435,6 +447,13 @@ class TitleCovers(Record):
     def from_url(cls, browser, url, timeout, log):
         covers = []
         root = cls.root_from_url(browser, url, timeout, log)
+
+        # Get rid of tooltips
+        for tooltip in root.xpath('//sup[@class="mouseover"]'):
+            tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+        for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
+            tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+
         covers = root.xpath('//div[@id="main"]/a/img/@src')
         log.info("Parsed covers from url %r. Found %d covers." % (url, len(covers)))
         return covers
@@ -670,6 +689,12 @@ class Title(Record):
 
         root = cls.root_from_url(browser, url, timeout, log)
 
+        # Get rid of tooltips
+        for tooltip in root.xpath('//sup[@class="mouseover"]'):
+            tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+        for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
+            tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+
         detail_div = root.xpath('//div[@class="ContentBox"]')[0]
 
         detail_nodes = []
@@ -837,6 +862,13 @@ class Series(Record):
         full_series = ''
 
         root = Series.root_from_url(browser, url, timeout, log)
+
+        # Get rid of tooltips
+        for tooltip in root.xpath('//sup[@class="mouseover"]'):
+            tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+        for tooltip in root.xpath('//span[@class="tooltiptext tooltipnarrow tooltipright"]'):
+            tooltip.getparent().remove(tooltip)  # We grab the parent of the element to call the remove directly on it
+
         detail_nodes = root.xpath('//div[@id="content"]/div[@class="ContentBox"][1]/ul/li')
         # log.info('Found {0} detail_nodes.'.format(len(detail_nodes)))
         # Text looks like:
