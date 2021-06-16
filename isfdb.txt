@@ -1,0 +1,37 @@
+[Metadata Source Plugin] ISFDB - Version 3.0.1 - 06-12-2021
+
+Downloads metadata and covers from ISFDB
+
+
+Features:
+
+
+Planned Features:
+
+
+Limitations:
+
+
+Version History:
+
+v.3.0.1 06-12-2021
+- Series and series_index from publishing page
+- Add identifiers: DNB, OCLC/WorldCat
+- clean_downloaded_metadata(): Fixcase title and author(s) only when language is english
+- Adding config file (not active yet)
+- Search options in config
+- Option for combine series and sub-series names
+- iso-8859-1 char encoding (as ISFDB web site uses) for search string to avoid notfound errors für non-ASCII chars (e. g. german umlauts)
+- Workaround for Calibre's too strict merge method on same title/author(s) by adding sequence number to title field
+- Workaround for not Calibre's float format compatible series numbers (e. g. # 61/62)
+- Convert language field text to Calibre's language code
+
+
+Installation:
+
+
+How to report Bugs and suggestions:
+
+
+Paypal Donations:
+
