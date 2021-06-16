@@ -6,7 +6,7 @@ from queue import Queue, Empty
 from threading import Thread
 
 from calibre.ebooks.metadata import check_isbn
-from calibre.ebooks.metadata.sources.base import Source, Option
+from calibre.ebooks.metadata.sources.base import Source, Option, fixauthors, fixcase
 from calibre.ebooks.metadata.book.base import Metadata
 
 from calibre_plugins.isfdb.objects import Publication, Title, PublicationsList, TitleList, TitleCovers
@@ -181,12 +181,11 @@ class ISFDB(Source):
         '''
         docase = mi.language == 'eng'  # or mi.is_null('language')
         if docase and mi.title:
-            pass  # Leave as is
-    #         mi.title = fixcase(mi.title)
-    #         mi.authors = fixauthors(mi.authors)
-    #     if mi.tags and docase:
-    #         mi.tags = list(map(fixcase, mi.tags))
-    #     mi.isbn = check_isbn(mi.isbn)
+            mi.title = fixcase(mi.title)
+            mi.authors = fixauthors(mi.authors)
+        if mi.tags and docase:
+            mi.tags = list(map(fixcase, mi.tags))
+        mi.isbn = check_isbn(mi.isbn)
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         '''
@@ -441,7 +440,13 @@ class Worker(Thread):
                     self.log.info(
                         "Could not find title ID in original metadata or on publication page. Searching for title.")
 
-                    title, author, ttype = pub["title"], pub["author_string"], pub["type"]
+                    if "author_string" not in pub:
+                        self.log.error('Warning: pub["author_string"] is not set.')
+                        pub["author_string"] = ''
+                    title = pub["title"]
+                    author = pub["author_string"]
+                    ttype = pub["type"]
+
                     query = TitleList.url_from_exact_title_author_and_type(title, author, ttype, self.log)
                     stubs = TitleList.from_url(self.browser, query, self.timeout, self.log)
 
@@ -475,13 +480,16 @@ class Worker(Thread):
                 self.log.error("Out of cheese error! Unrecognised url!")
                 return
 
-            if not pub.get("title") or not pub.get("authors"):
-                self.log.error('Insufficient metadata found for %r' % self.url)
+                # if not pub.get("title") or not pub.get("authors"):
+                if not pub.get("title") and not pub.get("authors"):
+                    self.log.error('Insufficient metadata found for %r' % self.url)
                 return
 
             # Put extracted metadata in queue
 
             # self.log.info('Put extracted metadata in queue.')
+            if len(pub["authors"]) == 0:
+                pub["authors"] = [_('Unknown')]
             mi = Metadata(pub["title"], pub["authors"])
 
             # for id_name in ("isbn", "isfdb", "isfdb-catalog", "isfdb-title"):

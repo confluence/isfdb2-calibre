@@ -152,22 +152,36 @@ class TitleList(SearchResults):
 
     @classmethod
     def url_from_exact_title_author_and_type(cls, title, author, ttype, log):
-        params = {
-            "USE_1": "title_title",
-            "OPERATOR_1": "exact",
-            "TERM_1": title,
-            "CONJUNCTION_1": "AND",
-            "USE_2": "author_canonical",
-            "OPERATOR_2": "exact",
-            "TERM_2": author,
-            "CONJUNCTION_2": "AND",
-            "USE_3": "title_ttype",
-            "OPERATOR_3": "exact",
-            "TERM_3": ttype,
-            "ORDERBY": "title_title",  # "ORDERBY": "title_copyright",
-            "START": "0",
-            "TYPE": cls.TYPE,
-        }
+        if author != '':
+            params = {
+                "USE_1": "title_title",
+                "OPERATOR_1": "exact",
+                "TERM_1": title,
+                "CONJUNCTION_1": "AND",
+                "USE_2": "author_canonical",
+                "OPERATOR_2": "exact",
+                "TERM_2": author,
+                "CONJUNCTION_2": "AND",
+                "USE_3": "title_ttype",
+                "OPERATOR_3": "exact",
+                "TERM_3": ttype,
+                "ORDERBY": "title_title",  # "ORDERBY": "title_copyright",
+                "START": "0",
+                "TYPE": cls.TYPE,
+            }
+        else:
+            params = {
+                "USE_1": "title_title",
+                "OPERATOR_1": "exact",
+                "TERM_1": title,
+                "CONJUNCTION_1": "AND",
+                "USE_2": "title_ttype",
+                "OPERATOR_2": "exact",
+                "TERM_2": ttype,
+                "ORDERBY": "title_title",  # "ORDERBY": "title_copyright",
+                "START": "0",
+                "TYPE": cls.TYPE,
+            }
 
         return cls.url_from_params(params, log)
 
@@ -318,17 +332,15 @@ class Publication(Record):
                     properties["authors"] = []
                     for a in detail_node.xpath('.//a'):
                         author = a.text_content().strip()
-                        if author == 'uncredited':
-                            author = 'unknown'
-                        # For looking up the corresponding title.
-                        # We can only use the first author because the search is broken.
-                        if "author_string" not in properties:
-                            properties["author_string"] = author
-
-                        if section.startswith('Editor'):
-                            properties["authors"].append(author + ' (Editor)')
-                        else:
-                            properties["authors"].append(author)
+                        if author != 'uncredited':
+                            # For looking up the corresponding title.
+                            # We can only use the first author because the search is broken.
+                            if "author_string" not in properties:
+                                properties["author_string"] = author
+                                if section.startswith('Editor'):
+                                    properties["authors"].append(author + ' (Editor)')
+                                else:
+                                    properties["authors"].append(author)
 
                 elif section == 'Type':
                     properties["type"] = detail_node[0].tail.strip()
@@ -731,12 +743,11 @@ class Title(Record):
                     author_links = [e for e in detail_node if e.tag == 'a']
                     for a in author_links:
                         author = a.text_content().strip()
-                        if author == 'uncredited':
-                            author = 'unknown'
-                        if section.startswith('Editor'):
-                            properties["authors"].append(author + ' (Editor)')
-                        else:
-                            properties["authors"].append(author)
+                        if author != 'uncredited':
+                            if section.startswith('Editor'):
+                                properties["authors"].append(author + ' (Editor)')
+                            else:
+                                properties["authors"].append(author)
 
                 elif section == 'Type':
                     properties["type"] = detail_node[0].tail.strip()
