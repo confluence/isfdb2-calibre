@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+import csv
 
 from queue import Queue, Empty
 from threading import Thread
@@ -57,12 +58,29 @@ class ISFDB(Source):
             _('Search ISFDB titles?'),
             _('This only applies to title / author searches. A record with a title ID and no publication ID will always return a title.')
         ),
+        Option(
+            'cookies_file_path',
+            'string',
+            '',
+            _('Path to cookies file'),
+            _('Path to a Netscape format cookies.txt file exported from your browser which allows the plugin to log in to ISFDB. This is needed for the cover search.')
+        ),
     )
 
     def __init__(self, *args, **kwargs):
         super(ISFDB, self).__init__(*args, **kwargs)
         self._publication_id_to_title_id_cache = {}
         
+        if self.prefs["cookies_file_path"]:
+            with open(self.prefs["cookies_file_path"]) as f:
+                creader = csv.reader(f, delimiter='\t')
+                for row in creader:
+                    if len(row) < 7:
+                        continue
+                    domain, _, path, _, _, name, value = row
+                    self.browser.set_cookie(name, value, domain, path)
+
+
     def cache_publication_id_to_title_id(self, isfdb_id, title_id):
         with self.cache_lock:
             self._publication_id_to_title_id_cache[isfdb_id] = title_id
