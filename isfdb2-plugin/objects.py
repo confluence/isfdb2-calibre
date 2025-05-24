@@ -19,7 +19,7 @@ class ISFDBObject(object):
 
 
 class SearchResults(ISFDBObject):
-    URL = 'http://www.isfdb.org/cgi-bin/adv_search_results.cgi?';
+    URL = 'https://www.isfdb.org/cgi-bin/adv_search_results.cgi?';
     TYPE = None;
 
     @classmethod
@@ -190,7 +190,7 @@ class Record(ISFDBObject):
 
 
 class Publication(Record):
-    URL = 'http://www.isfdb.org/cgi-bin/pl.cgi?'
+    URL = 'https://www.isfdb.org/cgi-bin/pl.cgi?'
 
     @classmethod
     def url_from_id(cls, isfdb_id):
@@ -284,7 +284,7 @@ class Publication(Record):
 
 
 class TitleCovers(Record):
-    URL = 'http://www.isfdb.org/cgi-bin/titlecovers.cgi?'
+    URL = 'https://www.isfdb.org/cgi-bin/titlecovers.cgi?'
     
     @classmethod
     def url_from_id(cls, title_id):
@@ -303,7 +303,7 @@ class TitleCovers(Record):
         return covers
 
 class Title(Record):
-    URL = 'http://www.isfdb.org/cgi-bin/title.cgi?'
+    URL = 'https://www.isfdb.org/cgi-bin/title.cgi?'
     
     TYPE_TO_TAG = {
             "ANTHOLOGY": "anthology",
