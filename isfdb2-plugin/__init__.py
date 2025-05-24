@@ -63,7 +63,7 @@ class ISFDB(Source):
             'string',
             '',
             _('Path to cookies file'),
-            _('Path to a Netscape format cookies.txt file exported from your browser which allows the plugin to log in to ISFDB. This is needed for the cover search.')
+            _('Path to a Netscape format cookies.txt file exported from your browser which allows the plugin to log in to ISFDB. This is needed for the cover search, and for fetching of title IDs.')
         ),
     )
 
