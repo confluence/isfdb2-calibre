@@ -25,7 +25,9 @@ This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguin
 
 ## Details:
 
-The plugin understands the following IDs: `isbn` (ISBN), `isfdb` (ISFDB publication ID), `isfdb-title` (ISFDB title ID), `isfdb-catalog` (any older non-ISBN publisher's catalog identifier).
+* The plugin understands the following IDs: `isbn` (ISBN), `isfdb` (ISFDB publication ID), `isfdb-title` (ISFDB title ID), `isfdb-catalog` (any older non-ISBN publisher's catalog identifier).
+
+* The cover search and title ID search require the plugin to be logged in when browsing ISFDB. To enable this, you need to export your ISFDB cookies from your browser to a plain text file (e.g. in Firefox you can use the [Export Cookies add-on](https://addons.mozilla.org/en-US/firefox/addon/export-cookies-txt/)) and enter the path to this file in the plugin's configuration. You will need to export a new file whenever the cookies expire.
 
 This code is a work in progress, but is currently in a usable state. Pull requests are welcome!
 
