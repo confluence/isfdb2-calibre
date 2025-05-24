@@ -1,6 +1,10 @@
 # isfdb2-calibre
 
-This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguing of physical collections of speculative fiction books. It is based on the [ISFDB Calibre plugin][1] written by Xtina Schelin, which I was maintaining in a [fork][2]. Calibre was migrated to Python 3 in version 5.0, and I have migrated this plugin accordingly. I will not be maintaining a Python 2 fork for older Calibre versions.
+This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguing of physical collections of speculative fiction books. It is based on the [ISFDB Calibre plugin][1] written by @XtinaSchelin, which I was maintaining in a [fork][2]. Calibre was migrated to Python 3 in version 5.0, and I have migrated this plugin accordingly. I will not be maintaining a Python 2 fork for older Calibre versions.
+
+This code is a work in progress, and is infrequently updated, but isn't dead! I still haven't completed my book catalogue, but I only remember to work on it once every couple of months. That means that sometimes changes to the ISFDB site may break the plugin until I notice. Issues and pull requests are welcome! I can't promise that I'll merge every suggestion -- I'm trying to stick to a simple core of functions that I use and am willing to maintain.
+
+Please also feel free to fork this project and build on it. @bertholdm is maintaining a [fork][3] which has different behaviour and is more actively maintained.
 
 ## Installation instructions (Linux and Mac; Windows should be similar):
 
@@ -29,8 +33,6 @@ This is a reimplementation of the ISFDB Calibre plugin, optimised for cataloguin
 
 * The cover search and title ID search require the plugin to be logged in when browsing ISFDB. To enable this, you need to export your ISFDB cookies from your browser to a plain text file (e.g. in Firefox you can use the [Export Cookies add-on](https://addons.mozilla.org/en-US/firefox/addon/export-cookies-txt/)) and enter the path to this file in the plugin's configuration. You will need to export a new file whenever the cookies expire.
 
-This code is a work in progress, but is currently in a usable state. Pull requests are welcome!
-
 ## Future work:
 
 In future I plan to add UI features to simplify bulk entry of book records by ISFDB ID:
@@ -42,3 +44,4 @@ The messy manual process I currently use is documented [here](http://confluence.
 
 [1]: https://github.com/XtinaSchelin/isfdb-calibre
 [2]: https://github.com/confluence/isfdb-calibre
+[3]: https://github.com/bertholdm/isfdb3-calibre
