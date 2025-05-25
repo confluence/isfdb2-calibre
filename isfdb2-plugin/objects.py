@@ -32,12 +32,12 @@ class SearchResults(ISFDBObject):
     
 
 class PublicationsList(SearchResults):
+    # TODO support adding price or date as a supplementary field
+    # but where would price go in the interface? Tags??
     TYPE = "Publication"
     
     @classmethod
     def url_from_isbn(cls, isbn):
-        # TODO support adding price or date as a supplementary field
-        # but where will it go in the interface?
         params = {
             "USE_1": "pub_isbn",
             "OPERATOR_1": "exact",
@@ -48,11 +48,22 @@ class PublicationsList(SearchResults):
         }
 
         return cls.url_from_params(params)
+    
+    @classmethod
+    def url_from_catalog_id(cls, catalog_id):
+        params = {
+            "USE_1": "pub_catalog",
+            "OPERATOR_1": "exact",
+            "TERM_1": catalog_id,
+            "ORDERBY": "pub_title",
+            "START": "0",
+            "TYPE": cls.TYPE,
+        }
+
+        return cls.url_from_params(params)
 
     @classmethod
     def url_from_title_and_author(cls, title, author):
-        # TODO support adding price or date as a supplementary field
-        # but where will it go in the interface?
         field = 0
 
         params = {

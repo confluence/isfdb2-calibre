@@ -6,7 +6,7 @@ This code is a work in progress, and is infrequently updated, but isn't dead! I 
 
 Please also feel free to fork this project and build on it. @bertholdm is maintaining a [fork][3] which has different behaviour and is more actively maintained.
 
-## Installation instructions (Linux and Mac; Windows should be similar):
+## Installation instructions (Linux and Mac; Windows should be similar)
 
     # clone the repository
     git clone https://github.com/confluence/isfdb2-calibre.git
@@ -17,7 +17,7 @@ Please also feel free to fork this project and build on it. @bertholdm is mainta
     # add the plugin to calibre
     calibre-customize -b isfdb2-plugin
 
-## Features:
+## Features
 
 * If an ISFDB publication ID is present in the book record, metadata from exactly one ISFDB publication record is fetched, together with additional information from its associated title record. This allows Calibre to be used as a catalogue of specific book editions (e.g. a metadata-only catalogue of printed books). Calibre merges metadata records with the same title and author and it's impossible to disable this behaviour, so all other source plugins must be disabled if you want to use the plugin in this mode.
 
@@ -27,13 +27,24 @@ Please also feel free to fork this project and build on it. @bertholdm is mainta
 
 * If there is a cover associated with the selected publication, only this cover will be returned. If there is no such cover, the plugin will attempt to find the associated title record and fetch more covers associated with that title, up to a configurable maximum.
 
-## Details:
+## Details
 
-* The plugin understands the following IDs: `isbn` (ISBN), `isfdb` (ISFDB publication ID), `isfdb-title` (ISFDB title ID), `isfdb-catalog` (any older non-ISBN publisher's catalog identifier).
+### Identifiers
 
-* The cover search and title ID search require the plugin to be logged in when browsing ISFDB. To enable this, you need to export your ISFDB cookies from your browser to a plain text file (e.g. in Firefox you can use the [Export Cookies add-on](https://addons.mozilla.org/en-US/firefox/addon/export-cookies-txt/)) and enter the path to this file in the plugin's configuration. You will need to export a new file whenever the cookies expire.
+The plugin understands the following IDs:
 
-## Future work:
+| Calibre ID name | Description | Location on ISFDB |
+-----------------------------------------------------
+|`isfdb` | ISFDB publication ID | Identifier in ISFDB publication page URL (`https://www.isfdb.org/cgi-bin/pl.cgi?XXXXXX`) |
+|`isfdb-title` | ISFDB title ID | Identifier in ISFDB title page URL (`https://www.isfdb.org/cgi-bin/title.cgi?XXXXXX`) |
+|`isbn` | ISBN | `ISBN` field on publication page |
+|`isfdb-catalog` | any older non-ISBN publisher's catalog identifier | `Catalog ID` field on publication page |
+
+### Cookies
+
+The cover search and title ID search require the plugin to be logged in when browsing ISFDB. To enable this, you need to export your ISFDB cookies from your browser to a plain text file (e.g. in Firefox you can use the [Export Cookies add-on](https://addons.mozilla.org/en-US/firefox/addon/export-cookies-txt/)) and enter the path to this file in the plugin's configuration. You will need to export a new file whenever the cookies expire.
+
+## Future work
 
 In future I plan to add UI features to simplify bulk entry of book records by ISFDB ID:
 

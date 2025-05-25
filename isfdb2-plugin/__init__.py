@@ -17,7 +17,7 @@ class ISFDB(Source):
     name = 'ISFDB'
     description = _('Downloads metadata and covers from ISFDB')
     author = 'Adrianna Pińska'
-    version = (3, 0, 0)
+    version = (3, 1, 0)
     minimum_calibre_version = (5, 0, 0)
 
     can_get_multiple_covers = True
@@ -171,9 +171,10 @@ class ISFDB(Source):
             catalog_id = identifiers.get('isfdb-catalog', None)
 
             # If there's an ISBN, search by ISBN first
-            # Fall back to non-ISBN catalog ID -- ISFDB uses the same field for both.
+            # Fall back to non-ISBN catalog ID
             if isbn or catalog_id:
-                query = PublicationsList.url_from_isbn(isbn or catalog_id)
+                query_function = "url_from_isbn" if isbn else "url_from_catalog_id"
+                query = getattr(PublicationsList, query_function)(isbn or catalog_id)
                 stubs = PublicationsList.from_url(self.browser, query, timeout, log)
                 
                 for stub in stubs:
