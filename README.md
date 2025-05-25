@@ -34,7 +34,7 @@ Please also feel free to fork this project and build on it. @bertholdm is mainta
 The plugin understands the following IDs:
 
 | Calibre ID name | Description | Location on ISFDB |
------------------------------------------------------
+| --------------- | ----------- | ----------------- |
 | `isfdb` | ISFDB publication ID | Identifier in ISFDB publication page URL (`https://www.isfdb.org/cgi-bin/pl.cgi?XXXXXX`) |
 | `isfdb-title` | ISFDB title ID | Identifier in ISFDB title page URL (`https://www.isfdb.org/cgi-bin/title.cgi?XXXXXX`) |
 | `isbn` | ISBN | `ISBN` field on publication page |
