@@ -24,53 +24,79 @@ class SearchResults(ISFDBObject):
 
     @classmethod
     def url_from_params(cls, params):
-        return cls.URL + urlencode(params)
-    
+        return cls.URL + urlencode(params, encoding="iso-8859-1")
+
     @classmethod
     def is_type_of(cls, url):
         return url.startswith(cls.URL) and ("TYPE=%s" % cls.TYPE) in url
-    
+
 
 class PublicationsList(SearchResults):
-    # TODO support adding price or date as a supplementary field
-    # but where would price go in the interface? Tags??
     TYPE = "Publication"
-    
+
     @classmethod
-    def url_from_isbn(cls, isbn):
+    def _url_from(cls, params, field, month, year, price):
+        if month:
+            field += 1
+            params.update({
+                "USE_%d" % field: "pub_month",
+                "OPERATOR_%d" % field: "exact",
+                "TERM_%d" % field: month,
+            })
+        elif year:
+            field += 1
+            params.update({
+                "USE_%d" % field: "pub_year",
+                "OPERATOR_%d" % field: "exact",
+                "TERM_%d" % field: year,
+            })
+
+        if price:
+            field += 1
+            params.update({
+                "USE_%d" % field: "pub_price",
+                "OPERATOR_%d" % field: "exact",
+                "TERM_%d" % field: price,
+            })
+
+        for i in range(1, field):
+            params.update({
+                "CONJUNCTION_%d" % i: "AND",
+            })
+
+        params.update({
+            "ORDERBY": "pub_title",
+            "START": "0",
+            "TYPE": cls.TYPE,
+        })
+
+        return cls.url_from_params(params)
+
+    @classmethod
+    def url_from_isbn(cls, isbn, month, year, price):
         params = {
             "USE_1": "pub_isbn",
             "OPERATOR_1": "exact",
             "TERM_1": isbn,
-            "ORDERBY": "pub_title",
-            "START": "0",
-            "TYPE": cls.TYPE,
         }
 
-        return cls.url_from_params(params)
-    
+        return cls._url_from(params, 1, month, year, price)
+
     @classmethod
-    def url_from_catalog_id(cls, catalog_id):
+    def url_from_catalog_id(cls, catalog_id, month, year, price):
         params = {
             "USE_1": "pub_catalog",
             "OPERATOR_1": "exact",
             "TERM_1": catalog_id,
-            "ORDERBY": "pub_title",
-            "START": "0",
-            "TYPE": cls.TYPE,
         }
 
-        return cls.url_from_params(params)
+        return cls._url_from(params, 1, month, year, price)
 
     @classmethod
-    def url_from_title_and_author(cls, title, author):
+    def url_from_title_and_author(cls, title, author, month, year, price):
         field = 0
 
-        params = {
-            "ORDERBY": "pub_title",
-            "START": "0",
-            "TYPE": cls.TYPE,
-        }
+        params = {}
 
         if title:
             field += 1
@@ -88,12 +114,7 @@ class PublicationsList(SearchResults):
                 "TERM_%d" % field: author,
             })
 
-        if "USE_2" in params:
-            params.update({
-                "CONJUNCTION_1": "AND",
-            })
-
-        return cls.url_from_params(params)
+        return cls._url_from(params, field, month, year, price)
 
     @classmethod
     def from_url(cls, browser, url, timeout, log):
@@ -117,9 +138,9 @@ class PublicationsList(SearchResults):
 class TitleList(SearchResults):
     # TODO: separate permissive title/author search from specific lookup of a publication
     # TODO: isbn not possible; add type to exact search?
-    
+
     TYPE = "Title"
-    
+
     @classmethod
     def url_from_exact_title_author_and_type(cls, title, author, ttype):
         params = {
@@ -142,7 +163,7 @@ class TitleList(SearchResults):
         return cls.url_from_params(params)
 
     @classmethod
-    def url_from_title_and_author(cls, title, author):
+    def url_from_title_and_author(cls, title, author, month, year):
         field = 0
 
         params = {
@@ -167,9 +188,24 @@ class TitleList(SearchResults):
                 "TERM_%d" % field: author,
             })
 
-        if "USE_2" in params:
+        if month:
+            field += 1
             params.update({
-                "CONJUNCTION_1": "AND",
+                "USE_%d" % field: "month",
+                "OPERATOR_%d" % field: "exact",
+                "TERM_%d" % field: month,
+            })
+        elif year:
+            field += 1
+            params.update({
+                "USE_%d" % field: "title_copyright",
+                "OPERATOR_%d" % field: "exact",
+                "TERM_%d" % field: year,
+            })
+
+        for i in range(1, field):
+            params.update({
+                "CONJUNCTION_%d" % i: "AND",
             })
 
         return cls.url_from_params(params)
@@ -194,7 +230,7 @@ class TitleList(SearchResults):
 
 class Record(ISFDBObject):
     URL = None
-    
+
     @classmethod
     def is_type_of(cls, url):
         return url.startswith(cls.URL)
@@ -210,7 +246,7 @@ class Publication(Record):
     @classmethod
     def id_from_url(cls, url):
         return re.search('(\d+)$', url).group(1)
-    
+
     @classmethod
     def stub_from_search(cls, row):
         properties = {}
@@ -244,12 +280,12 @@ class Publication(Record):
                     properties["authors"] = []
                     for a in detail_node.xpath('.//a'):
                         author = a.text_content().strip()
-                        
+
                         # For looking up the corresponding title.
                         # We can only use the first author because the search is broken.
                         if "author_string" not in properties:
                             properties["author_string"] = author
-                            
+
                         if section.startswith('Editor'):
                             properties["authors"].append(author + ' (Editor)')
                         else:
@@ -271,6 +307,7 @@ class Publication(Record):
                 elif section == 'Catalog ID':
                     properties["isfdb-catalog"] = detail_node[0].tail.strip()
                 elif section == 'Container Title':
+                    # TODO is this still relevant?
                     title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
                     properties["isfdb-title"] = Title.id_from_url(title_url)
             except Exception as e:
@@ -280,7 +317,15 @@ class Publication(Record):
             contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
 
             if contents_node:
-                properties["comments"] = sanitize_comments_html(tostring(contents_node[0], method='html'))
+                comments = contents_node[0]
+
+                # Strip tooltips from contents
+                for e in comments.xpath('.//sup[@class="mouseover"]'):
+                    e.getparent().remove(e)
+                for e in comments.xpath('.//span[contains(@class, "tooltiptext")]'):
+                    e.getparent().remove(e)
+
+                properties["comments"] = sanitize_comments_html(tostring(comments, method='html'))
         except Exception as e:
             log.exception('Error parsing comments for url: %r. Error: %r' % (url, e))
 
@@ -296,7 +341,7 @@ class Publication(Record):
 
 class TitleCovers(Record):
     URL = 'https://www.isfdb.org/cgi-bin/titlecovers.cgi?'
-    
+
     @classmethod
     def url_from_id(cls, title_id):
         return cls.URL + title_id
@@ -315,7 +360,7 @@ class TitleCovers(Record):
 
 class Title(Record):
     URL = 'https://www.isfdb.org/cgi-bin/title.cgi?'
-    
+
     TYPE_TO_TAG = {
             "ANTHOLOGY": "anthology",
             "CHAPBOOK": "chapbook",
@@ -333,7 +378,7 @@ class Title(Record):
             "SHORTFICTION\n [juvenile]": "juvenile, short fiction",
             "SHORTFICTION\n [non-genre]": "short fiction"
         }
-    
+
     @classmethod
     def url_from_id(cls, isfdb_title_id):
         return cls.URL + isfdb_title_id
@@ -341,7 +386,7 @@ class Title(Record):
     @classmethod
     def id_from_url(cls, url):
         return re.search('(\d+)$', url).group(1)
-    
+
     @classmethod
     def stub_from_search(cls, row):
         properties = {}
@@ -356,9 +401,9 @@ class Title(Record):
         properties["isfdb-title"] = cls.id_from_url(url)
 
         root = cls.root_from_url(browser, url, timeout, log)
-        
+
         detail_div = root.xpath('//div[@class="ContentBox"]')[0]
-        
+
         detail_nodes = []
         detail_node = []
         for e in detail_div:
@@ -368,7 +413,7 @@ class Title(Record):
             else:
                 detail_node.append(e)
         detail_nodes.append(detail_node)
-                
+
         for detail_node in detail_nodes:
             section = detail_node[0].text_content().strip().rstrip(':')
             try:
@@ -382,7 +427,7 @@ class Title(Record):
                     author_links = [e for e in detail_node if e.tag == 'a']
                     for a in author_links:
                         author = a.text_content().strip()
-                        
+
                         if section.startswith('Editor'):
                             properties["authors"].append(author + ' (Editor)')
                         else:
@@ -424,5 +469,5 @@ class Title(Record):
 
         publication_links = root.xpath('//a[contains(@href, "/pl.cgi?")]/@href')
         properties["publications"] = [Publication.id_from_url(l) for l in publication_links]
-        
+
         return properties
