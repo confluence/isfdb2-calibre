@@ -10,6 +10,12 @@ import codecs
 from calibre.utils.cleantext import clean_ascii_chars
 from calibre.library.comments import sanitize_comments_html
 
+
+def get_first(root, path):
+    results = root.xpath(path)
+    return results[0] if results else None
+
+
 class ISFDBObject(object):
     @classmethod
     def root_from_url(cls, browser, url, timeout, log):
@@ -250,9 +256,9 @@ class Publication(Record):
     @classmethod
     def stub_from_search(cls, row):
         properties = {}
-        properties["title"] = row.xpath('td[1]/a')[0].text_content()
+        properties["title"] = get_first(row, 'td[1]/a').text_content()
         properties["authors"] = [a.text_content() for a in row.xpath('td[3]/a')]
-        properties["url"] = row.xpath('td[1]/a/@href')[0]
+        properties["url"] = get_first(row, 'td[1]/a/@href')
         return properties
 
     @classmethod
@@ -295,7 +301,7 @@ class Publication(Record):
                 elif section == 'ISBN':
                     properties["isbn"] = detail_node[0].tail.strip('[] \n')
                 elif section == 'Publisher':
-                    properties["publisher"] = detail_node.xpath('a')[0].text_content().strip()
+                    properties["publisher"] = get_first(detail_node, 'a').text_content().strip()
                 elif section == 'Date':
                     date_text = detail_node[0].tail.strip()
                     # We use this instead of strptime to handle dummy days and months
@@ -306,33 +312,41 @@ class Publication(Record):
                     properties["pubdate"] = datetime.datetime(year, month, day)
                 elif section == 'Catalog ID':
                     properties["isfdb-catalog"] = detail_node[0].tail.strip()
-                elif section == 'Container Title':
-                    # TODO is this still relevant?
-                    title_url = detail_nodes[9].xpath('a')[0].attrib.get('href')
-                    properties["isfdb-title"] = Title.id_from_url(title_url)
+
             except Exception as e:
                 log.exception('Error parsing section %r for url: %r. Error: %r' % (section, url, e) )
 
         try:
-            contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
+            # This should always exist
+            contents_box = get_first(root, '//div[@class="ContentBox"][2]')
 
-            if contents_node:
-                comments = contents_node[0]
+            # If this is an anthology or collection
+            title_link = get_first(contents_box, 'span[@class="containertitle"]/following-sibling::a[contains(@href, "title.cgi")]')
+            # If this is a novel
+            if title_link is None:
+                title_link = get_first(contents_box, './/li[contains(., "novel by")]//a[contains(@href, "title.cgi")]')
+            if title_link is not None:
+                properties["isfdb-title"] = Title.id_from_url(title_link.get("href"))
 
-                # Strip tooltips from contents
-                for e in comments.xpath('.//sup[@class="mouseover"]'):
-                    e.getparent().remove(e)
-                for e in comments.xpath('.//span[contains(@class, "tooltiptext")]'):
-                    e.getparent().remove(e)
+            # Strip listing link from contents title
+            listing_link = get_first(contents_box, './/a[@class="listingtext"]')
+            if listing_link is not None:
+                listing_link.getparent().remove(listing_link)
 
-                properties["comments"] = sanitize_comments_html(tostring(comments, method='html'))
+            # Strip tooltips from contents
+            for e in contents_box.xpath('.//sup[@class="mouseover"]'):
+                e.getparent().remove(e)
+            for e in contents_box.xpath('.//span[contains(@class, "tooltiptext")]'):
+                e.getparent().remove(e)
+
+            properties["comments"] = sanitize_comments_html(tostring(contents_box, method='html'))
         except Exception as e:
             log.exception('Error parsing comments for url: %r. Error: %r' % (url, e))
 
         try:
-            img_src = root.xpath('//div[@id="content"]//table/tr[1]/td[1]/a/img/@src')
-            if img_src:
-                properties["cover_url"] = img_src[0]
+            img_src = get_first(root, '//div[@id="content"]//table/tr[1]/td[1]/a/img/@src')
+            if img_src is not None:
+                properties["cover_url"] = img_src
         except Exception as e:
             log.exception('Error parsing cover for url: %r. Error: %r' % (url, e))
 
@@ -390,9 +404,9 @@ class Title(Record):
     @classmethod
     def stub_from_search(cls, row):
         properties = {}
-        properties["title"] = row.xpath('td[5]/a')[0].text_content()
+        properties["title"] = get_first(row, 'td[5]/a').text_content()
         properties["authors"] = [a.text_content() for a in row.xpath('td[6]/a')]
-        properties["url"] = row.xpath('td[5]/a/@href')[0]
+        properties["url"] = get_first(row, 'td[5]/a/@href')
         return properties
 
     @classmethod
@@ -402,7 +416,7 @@ class Title(Record):
 
         root = cls.root_from_url(browser, url, timeout, log)
 
-        detail_div = root.xpath('//div[@class="ContentBox"]')[0]
+        detail_div = get_first(root, '//div[@class="ContentBox"]')
 
         detail_nodes = []
         detail_node = []
